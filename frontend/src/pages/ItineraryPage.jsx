@@ -27,6 +27,18 @@ const FORMALITY_BADGE = {
   casual_smart: 'badge-terra', casual: 'badge-sage', activewear: 'badge-sage',
 }
 
+// Local-timezone YYYY-MM-DD (avoids UTC drift from .toISOString())
+const toLocalDateStr = (d) => {
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+  return local.toISOString().split('T')[0]
+}
+const addDays = (isoDate, days) => {
+  const d = new Date(isoDate + 'T00:00:00')
+  d.setDate(d.getDate() + days)
+  return toLocalDateStr(d)
+}
+const RANGE_DAYS = 7
+
 export default function ItineraryPage() {
   const [events,    setEvents]   = useState([])
   const [loading,   setLoading]  = useState(true)
@@ -36,14 +48,15 @@ export default function ItineraryPage() {
   const [conflicts, setConflicts]= useState(null)
   const [error,     setError]    = useState('')
   const [needsCalendar, setNeedsCalendar] = useState(false)
-  const [dateFilter,setDateFilter]= useState(new Date().toISOString().split('T')[0])
+  const [rangeStart, setRangeStart] = useState(toLocalDateStr(new Date()))
+  const rangeEnd = addDays(rangeStart, RANGE_DAYS - 1)
 
-  useEffect(() => { loadEvents() }, [dateFilter])
+  useEffect(() => { loadEvents() }, [rangeStart])
 
   const loadEvents = async () => {
     setLoading(true)
     try {
-      const data = await itineraryApi.events.list({ date: dateFilter })
+      const data = await itineraryApi.events.list({ start_date: rangeStart, end_date: rangeEnd })
       setEvents(data?.results || [])
     } catch { setEvents([]) }
     finally { setLoading(false) }
@@ -59,7 +72,7 @@ export default function ItineraryPage() {
     setError('')
     setNeedsCalendar(false)
     try {
-      const res = await itineraryApi.events.sync?.() || await fetch('/api/itinerary/events/sync/', { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('gg_access')}` } }).then(r => r.json())
+      const res = await itineraryApi.events.sync()
       if (res.status === 'no_calendars_connected') {
         setNeedsCalendar(true)
       } else if (res.status === 'synced') {
@@ -79,13 +92,28 @@ export default function ItineraryPage() {
     setChecking(true)
     setConflicts(null)
     try {
-      const result = await agents.conflictDetector({ date: dateFilter })
+      const result = await agents.conflictDetector({ date: rangeStart })
       if (result.status === 'completed') setConflicts(result.output)
     } catch (e) {
       setError(e.message)
     } finally {
       setChecking(false)
     }
+  }
+
+  const shiftWeek = (delta) => setRangeStart(prev => addDays(prev, delta * RANGE_DAYS))
+  const jumpToday = () => setRangeStart(toLocalDateStr(new Date()))
+
+  const eventsByDay = events.reduce((acc, ev) => {
+    const key = (ev.start_time || '').slice(0, 10)
+    if (!key) return acc
+    ;(acc[key] = acc[key] || []).push(ev)
+    return acc
+  }, {})
+  const dayKeys = Object.keys(eventsByDay).sort()
+  const formatDayHeader = (iso) => {
+    const d = new Date(iso + 'T00:00:00')
+    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
   }
 
   return (
@@ -98,13 +126,19 @@ export default function ItineraryPage() {
 
       {/* Controls */}
       <div className="fade-up fade-up-delay-1" style={{ display:'flex', gap:'10px', marginBottom:'24px', flexWrap:'wrap', alignItems:'center' }}>
+        <button className="btn btn-ghost btn-sm" onClick={() => shiftWeek(-1)} title="Previous week">←</button>
         <input
           type="date"
           className="input"
-          value={dateFilter}
-          onChange={e => setDateFilter(e.target.value)}
+          value={rangeStart}
+          onChange={e => setRangeStart(e.target.value)}
           style={{ maxWidth:'180px' }}
         />
+        <button className="btn btn-ghost btn-sm" onClick={() => shiftWeek(1)} title="Next week">→</button>
+        <button className="btn btn-ghost btn-sm" onClick={jumpToday}>Today</button>
+        <span style={{ fontSize:'0.8rem', color:'var(--cream-dim)' }}>
+          {formatDayHeader(rangeStart)} – {formatDayHeader(rangeEnd)}
+        </span>
         <button className="btn btn-secondary btn-sm" onClick={checkConflicts} disabled={checking}>
           {checking ? <><span className="spinner" style={{width:14,height:14}}/> Checking…</> : '⚡ Check conflicts'}
         </button>
@@ -168,47 +202,56 @@ export default function ItineraryPage() {
       ) : events.length === 0 ? (
         <div className="empty-state card fade-up">
           <div className="empty-icon">📅</div>
-          <div className="empty-title">Nothing scheduled</div>
+          <div className="empty-title">Nothing scheduled this week</div>
           <div className="empty-body">Add events manually or sync your Google Calendar.</div>
           <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add event</button>
         </div>
       ) : (
-        <div style={{ display:'flex', flexDirection:'column', gap:'10px' }} className="fade-up fade-up-delay-2">
-          {events.map(ev => (
-            <div key={ev.id} className="card" style={{ display:'flex', alignItems:'center', gap:'16px' }}>
-              <span style={{ fontSize:'1.75rem', width:'32px', textAlign:'center' }}>
-                {EVENT_ICONS[ev.event_type] || '📌'}
-              </span>
-              <div style={{ flex:1 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'4px' }}>
-                  <span style={{ fontWeight:500, color:'var(--cream)' }}>{ev.title}</span>
-                  {ev.formality && (
-                    <span className={`badge ${FORMALITY_BADGE[ev.formality] || 'badge-sky'}`}>
-                      {ev.formality.replace('_',' ')}
-                    </span>
-                  )}
-                  <span className="badge" style={{ background:'var(--surface-3)', color:'var(--cream-dim)' }}>
-                    {EVENT_TYPE_LABELS[ev.event_type] || ev.event_type}
-                  </span>
-                </div>
-                <div style={{ fontSize:'0.8rem', color:'var(--cream-dim)', display:'flex', gap:'12px' }}>
-                  {ev.start_time && (
-                    <span>
-                      {new Date(ev.start_time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
-                      {ev.end_time ? ` – ${new Date(ev.end_time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}` : ''}
-                    </span>
-                  )}
-                  {ev.location && <span>📍 {ev.location}</span>}
-                </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:'20px' }} className="fade-up fade-up-delay-2">
+          {dayKeys.map(dayKey => (
+            <div key={dayKey}>
+              <div style={{ fontSize:'0.8rem', color:'var(--cream-dim)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:'8px' }}>
+                {formatDayHeader(dayKey)}
               </div>
-              <button
-                className="btn btn-ghost btn-icon btn-sm"
-                onClick={() => deleteEvent(ev.id)}
-                title="Delete event"
-                style={{ color:'var(--cream-dim)', fontSize:'0.9rem' }}
-              >
-                ✕
-              </button>
+              <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
+                {eventsByDay[dayKey].map(ev => (
+                  <div key={ev.id} className="card" style={{ display:'flex', alignItems:'center', gap:'16px' }}>
+                    <span style={{ fontSize:'1.75rem', width:'32px', textAlign:'center' }}>
+                      {EVENT_ICONS[ev.event_type] || '📌'}
+                    </span>
+                    <div style={{ flex:1 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'4px' }}>
+                        <span style={{ fontWeight:500, color:'var(--cream)' }}>{ev.title}</span>
+                        {ev.formality && (
+                          <span className={`badge ${FORMALITY_BADGE[ev.formality] || 'badge-sky'}`}>
+                            {ev.formality.replace('_',' ')}
+                          </span>
+                        )}
+                        <span className="badge" style={{ background:'var(--surface-3)', color:'var(--cream-dim)' }}>
+                          {EVENT_TYPE_LABELS[ev.event_type] || ev.event_type}
+                        </span>
+                      </div>
+                      <div style={{ fontSize:'0.8rem', color:'var(--cream-dim)', display:'flex', gap:'12px' }}>
+                        {ev.start_time && (
+                          <span>
+                            {new Date(ev.start_time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+                            {ev.end_time ? ` – ${new Date(ev.end_time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}` : ''}
+                          </span>
+                        )}
+                        {ev.location && <span>📍 {ev.location}</span>}
+                      </div>
+                    </div>
+                    <button
+                      className="btn btn-ghost btn-icon btn-sm"
+                      onClick={() => deleteEvent(ev.id)}
+                      title="Delete event"
+                      style={{ color:'var(--cream-dim)', fontSize:'0.9rem' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -216,7 +259,7 @@ export default function ItineraryPage() {
 
       {showAdd && (
         <AddEventModal
-          defaultDate={dateFilter}
+          defaultDate={rangeStart}
           onClose={() => setShowAdd(false)}
           onAdd={ev => { setEvents(prev => [...prev, ev]); setShowAdd(false) }}
         />

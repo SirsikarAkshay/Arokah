@@ -89,6 +89,14 @@ class SmartRecommendInputSerializer(WeatherInputMixin):
         required=False,
         help_text='Date for the recommendation (YYYY-MM-DD, defaults to today)'
     )
+    start_date = serializers.DateField(
+        required=False,
+        help_text='Trip start date (YYYY-MM-DD) — for multi-day recommendations'
+    )
+    end_date = serializers.DateField(
+        required=False,
+        help_text='Trip end date (YYYY-MM-DD) — for multi-day recommendations'
+    )
     occasion = serializers.ChoiceField(
         choices=[
             'casual', 'smart_casual', 'business', 'formal',
@@ -98,6 +106,13 @@ class SmartRecommendInputSerializer(WeatherInputMixin):
         required=False, default='casual',
         help_text='Occasion type'
     )
+
+    def validate(self, data):
+        data = super().validate(data)
+        if 'start_date' in data and 'end_date' in data:
+            if data['start_date'] > data['end_date']:
+                raise serializers.ValidationError('`start_date` must be before `end_date`.')
+        return data
 
 
 class LuggageWeightInputSerializer(serializers.Serializer):

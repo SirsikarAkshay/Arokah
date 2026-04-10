@@ -103,12 +103,16 @@ class GoogleConnectView(APIView):
         state = f"{request.user.id}:{secrets.token_hex(16)}"
 
         try:
-            auth_url, _ = google_calendar.get_authorization_url(state=state)
+            auth_url, _, code_verifier = google_calendar.get_authorization_url(state=state)
         except Exception as exc:
             return Response(
                 {'error': {'code': 'oauth_error', 'message': str(exc)}},
                 status=500,
             )
+
+        # Persist the PKCE verifier so the callback can complete the exchange.
+        from django.core.cache import cache
+        cache.set(f'google_oauth_verifier:{state}', code_verifier, timeout=600)
 
         return Response({
             'auth_url':   auth_url,
@@ -152,11 +156,17 @@ class GoogleCallbackView(APIView):
         except User.DoesNotExist:
             return redirect(f"{frontend_base}/profile?calendar=google&status=error&reason=user_not_found")
 
+        from django.core.cache import cache
+        verifier_key  = f'google_oauth_verifier:{state}'
+        code_verifier = cache.get(verifier_key, '')
+
         try:
-            creds_dict = google_calendar.exchange_code(code, state)
+            creds_dict = google_calendar.exchange_code(code, code_verifier=code_verifier)
         except Exception as exc:
             logger.error('Google OAuth exchange failed: %s', exc)
             return redirect(f"{frontend_base}/profile?calendar=google&status=error&reason=exchange_failed")
+        finally:
+            cache.delete(verifier_key)
 
         # Fetch the Google account email for display
         google_email = google_calendar.get_google_email(creds_dict) or ''
@@ -354,9 +364,15 @@ class OutlookConnectView(APIView):
         state = f"{request.user.id}:{secrets.token_hex(16)}"
         try:
             from calendar_sync import outlook_calendar
-            auth_url, _ = outlook_calendar.get_authorization_url(state=state)
+            auth_url, flow_dict = outlook_calendar.get_authorization_url(state=state)
         except Exception as exc:
             return Response({'error': {'code': 'oauth_error', 'message': str(exc)}}, status=500)
+
+        # Persist the MSAL auth code flow dict so the callback can use it.
+        # Store on the user record (encrypted) — MSAL needs it to complete the exchange.
+        from calendar_sync.token_store import encrypt_tokens
+        request.user.outlook_calendar_token = encrypt_tokens({'_msal_flow': flow_dict})
+        request.user.save(update_fields=['outlook_calendar_token'])
 
         return Response({
             'auth_url': auth_url,
@@ -370,39 +386,42 @@ class OutlookCallbackView(APIView):
     serializer_class   = None
 
     def get(self, request):
-        import json
         from calendar_sync import outlook_calendar
+        from calendar_sync.token_store import encrypt_tokens, decrypt_tokens
 
         code  = request.query_params.get('code', '')
         state = request.query_params.get('state', '')
         error = request.query_params.get('error', '')
-        frontend_base = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        frontend_base = getattr(settings, 'FRONTEND_URL', 'http://localhost:5175')
 
         if error:
-            return redirect(f"{frontend_base}/calendar?calendar=outlook&status=denied")
+            return redirect(f"{frontend_base}/profile?calendar=outlook&status=denied")
         if not code:
-            return redirect(f"{frontend_base}/calendar?calendar=outlook&status=error&reason=no_code")
+            return redirect(f"{frontend_base}/profile?calendar=outlook&status=error&reason=no_code")
 
         try:
             user_id = int(state.split(':')[0])
         except (ValueError, IndexError):
-            return redirect(f"{frontend_base}/calendar?calendar=outlook&status=error&reason=invalid_state")
+            return redirect(f"{frontend_base}/profile?calendar=outlook&status=error&reason=invalid_state")
 
         from django.contrib.auth import get_user_model
         User = get_user_model()
         try:
             user = User.objects.get(id=user_id, is_active=True)
         except User.DoesNotExist:
-            return redirect(f"{frontend_base}/calendar?calendar=outlook&status=error&reason=user_not_found")
+            return redirect(f"{frontend_base}/profile?calendar=outlook&status=error&reason=user_not_found")
+
+        # Recover the MSAL auth code flow dict persisted during connect
+        stored = decrypt_tokens(user.outlook_calendar_token) if user.outlook_calendar_token else {}
+        msal_flow = stored.get('_msal_flow')
 
         try:
-            creds_dict = outlook_calendar.exchange_code(code, state)
+            creds_dict = outlook_calendar.exchange_code(code, state, msal_flow=msal_flow)
         except Exception as exc:
             logger.error('Outlook OAuth exchange failed: %s', exc)
-            return redirect(f"{frontend_base}/calendar?calendar=outlook&status=error&reason=exchange_failed")
+            return redirect(f"{frontend_base}/profile?calendar=outlook&status=error&reason=exchange_failed")
 
         outlook_email = outlook_calendar.get_outlook_email(creds_dict['access_token']) or ''
-        from calendar_sync.token_store import encrypt_tokens
         user.outlook_calendar_token     = encrypt_tokens(creds_dict)
         user.outlook_calendar_email     = outlook_email
         user.outlook_calendar_connected = True
@@ -417,7 +436,7 @@ class OutlookCallbackView(APIView):
         except Exception as exc:
             logger.warning('Initial Outlook sync failed: %s', exc)
 
-        return redirect(f"{frontend_base}/calendar?calendar=outlook&status=connected")
+        return redirect(f"{frontend_base}/profile?calendar=outlook&status=connected")
 
 
 class OutlookSyncView(APIView):

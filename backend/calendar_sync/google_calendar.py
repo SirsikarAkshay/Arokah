@@ -8,6 +8,11 @@ Flow:
   4. POST /api/calendar/google/sync/  → pulls events into CalendarEvent table
   5. POST /api/calendar/google/disconnect/  → revokes tokens and clears connection
 """
+import os
+# Must be set before any oauthlib import — Google adds 'openid' implicitly
+# when userinfo.email is requested, which oauthlib otherwise rejects.
+os.environ.setdefault('OAUTHLIB_RELAX_TOKEN_SCOPE', '1')
+
 import json
 import logging
 import datetime
@@ -19,8 +24,11 @@ from calendar_sync.token_store import load_google_tokens, store_google_tokens, e
 
 logger = logging.getLogger('arokah.calendar.google')
 
-# Read-only calendar scope — we never write to the user's calendar
-SCOPES = ['https://www.googleapis.com/auth/calendar.readonly',
+# Read-only calendar scope — we never write to the user's calendar.
+# 'openid' is added by Google automatically because userinfo.email implies it;
+# listing it here keeps the requested/returned sets consistent.
+SCOPES = ['openid',
+          'https://www.googleapis.com/auth/calendar.readonly',
           'https://www.googleapis.com/auth/userinfo.email']
 
 
@@ -42,10 +50,13 @@ def get_oauth_flow():
     return flow
 
 
-def get_authorization_url(state: str = '') -> tuple[str, str]:
+def get_authorization_url(state: str = '') -> tuple[str, str, str]:
     """
     Generate the Google OAuth consent URL.
-    Returns (auth_url, state) — state is used to prevent CSRF in the callback.
+    Returns (auth_url, state, code_verifier). The code_verifier must be
+    persisted across the redirect and passed back to exchange_code(), because
+    google-auth-oauthlib uses PKCE and Google rejects the token exchange
+    otherwise with "Missing code verifier".
     """
     flow = get_oauth_flow()
     auth_url, state = flow.authorization_url(
@@ -54,15 +65,18 @@ def get_authorization_url(state: str = '') -> tuple[str, str]:
         prompt='consent',        # always prompt so we get a refresh token
         state=state,
     )
-    return auth_url, state
+    return auth_url, state, flow.code_verifier or ''
 
 
-def exchange_code(code: str, state: str = '') -> dict:
+def exchange_code(code: str, code_verifier: str = '') -> dict:
     """
     Exchange an authorization code for access + refresh tokens.
+    `code_verifier` is the PKCE verifier generated during get_authorization_url.
     Returns the credentials dict to store on the user.
     """
     flow = get_oauth_flow()
+    if code_verifier:
+        flow.code_verifier = code_verifier
     flow.fetch_token(code=code)
     creds = flow.credentials
     return _creds_to_dict(creds)
@@ -263,7 +277,7 @@ def revoke_access(user) -> bool:
         return False
     try:
         import requests as req
-        creds_dict = json.loads(user.google_calendar_token)
+        creds_dict = load_google_tokens(user)
         token      = creds_dict.get('token') or creds_dict.get('refresh_token')
         if token:
             req.post('https://oauth2.googleapis.com/revoke',

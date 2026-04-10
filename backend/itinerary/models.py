@@ -61,6 +61,7 @@ class Trip(models.Model):
     start_date  = models.DateField()
     end_date    = models.DateField()
     notes       = models.TextField(blank=True)
+    saved_recommendation = models.JSONField(null=True, blank=True, default=None)
     created_at  = models.DateTimeField(auto_now_add=True)
 
     class Meta:

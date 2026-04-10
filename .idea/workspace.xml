@@ -4,60 +4,22 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cade1bb6-4614-4724-b6b1-3b47eecb83d1" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+    <list default="true" id="cade1bb6-4614-4724-b6b1-3b47eecb83d1" name="Changes" comment="Push to the arokah repo">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/agents/input_serializers.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/agents/input_serializers.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/agents/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/agents/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/agents/services.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/agents/services.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/agents/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/agents/urls.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/agents/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/agents/views.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/calendar_sync/apple_calendar.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/calendar_sync/apple_calendar.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/arokah/services/weather.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/arokah/services/weather.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/calendar_sync/google_calendar.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/calendar_sync/google_calendar.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/calendar_sync/outlook_calendar.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/calendar_sync/outlook_calendar.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/calendar_sync/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/calendar_sync/views.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/index.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/package.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/App.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/api/client.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/api/config.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/api/index.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/components/ErrorBoundary.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/components/Layout.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/components/Layout.module.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/components/Toast.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/contexts/AuthContext.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/hooks/useAuth.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/hooks/useToast.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/index.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/main.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/Auth.module.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/CalendarPage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/CulturalPage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/Dashboard.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/Dashboard.module.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/DashboardPage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/ForgotPasswordPage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/ItineraryPage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/Login.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/LoginPage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/NotFoundPage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/ProfilePage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/Register.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/ResetPasswordPage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/SustainabilityPage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/TripPlannerPage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/VerifyEmailPage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/Wardrobe.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/pages/WardrobePage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/src/styles/globals.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/frontend/vite.config.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/backend/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/itinerary/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/itinerary/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/itinerary/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/itinerary/views.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/api/client.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/api/client.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/api/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/api/index.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/components/Layout.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/Layout.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/ProfilePage.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/ProfilePage.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/ItineraryPage.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/ItineraryPage.jsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/pages/TripPlannerPage.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/TripPlannerPage.jsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -127,11 +89,24 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1775756878964</updated>
-      <workItem from="1775756880005" duration="8808000" />
+      <workItem from="1775756880005" duration="21417000" />
     </task>
+    <task id="LOCAL-00001" summary="Push to the arokah repo">
+      <option name="closed" value="true" />
+      <created>1775812791713</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1775812791713</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Push to the arokah repo" />
+    <option name="LAST_COMMIT_MESSAGE" value="Push to the arokah repo" />
   </component>
 </project>

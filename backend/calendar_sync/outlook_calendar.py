@@ -39,35 +39,44 @@ def _get_msal_app():
     )
 
 
-def get_authorization_url(state: str = '') -> tuple[str, str]:
+def get_authorization_url(state: str = '') -> tuple[str, dict]:
     """
     Generate the Microsoft OAuth consent URL.
-    Returns (auth_url, state).
+    Returns (auth_url, flow_dict).  The flow_dict must be persisted
+    and passed back to exchange_code() — MSAL needs it to complete the exchange.
     """
-    app      = _get_msal_app()
-    flow     = app.initiate_auth_code_flow(
+    app  = _get_msal_app()
+    flow = app.initiate_auth_code_flow(
         scopes=SCOPES,
         redirect_uri=settings.MICROSOFT_REDIRECT_URI,
         state=state,
         response_mode='query',
     )
-    return flow['auth_uri'], flow.get('state', state)
+    if 'auth_uri' not in flow:
+        raise Exception(f"MSAL flow init failed: {flow.get('error', 'unknown')}")
+    return flow['auth_uri'], flow
 
 
-def exchange_code(code: str, state: str = '') -> dict:
+def exchange_code(code: str, state: str = '', msal_flow: dict = None) -> dict:
     """
     Exchange an authorization code for access + refresh tokens.
+    `msal_flow` is the dict returned by get_authorization_url — MSAL needs it.
     Returns a dict to store on the user.
     """
-    import msal, requests as req
-
     app = _get_msal_app()
-    # MSAL requires the full flow dict — rebuild a minimal one
-    result = app.acquire_token_by_authorization_code(
-        code=code,
-        scopes=SCOPES,
-        redirect_uri=settings.MICROSOFT_REDIRECT_URI,
-    )
+
+    if msal_flow:
+        # Preferred path: use the original auth code flow dict
+        auth_response = {'code': code, 'state': state}
+        result = app.acquire_token_by_auth_code_flow(msal_flow, auth_response)
+    else:
+        # Fallback: try direct exchange (may fail with some MSAL versions)
+        result = app.acquire_token_by_authorization_code(
+            code=code,
+            scopes=SCOPES,
+            redirect_uri=settings.MICROSOFT_REDIRECT_URI,
+        )
+
     if 'error' in result:
         raise Exception(f"Token exchange failed: {result.get('error_description', result['error'])}")
 

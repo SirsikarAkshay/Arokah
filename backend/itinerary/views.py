@@ -19,11 +19,17 @@ class CalendarEventViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        qs = CalendarEvent.objects.filter(user=self.request.user).select_related('user')
-        date = self.request.query_params.get('date')
-        if date:
+        qs         = CalendarEvent.objects.filter(user=self.request.user).select_related('user')
+        date       = self.request.query_params.get('date')
+        start_date = self.request.query_params.get('start_date')
+        end_date   = self.request.query_params.get('end_date')
+        if start_date:
+            qs = qs.filter(start_time__date__gte=start_date)
+        if end_date:
+            qs = qs.filter(start_time__date__lte=end_date)
+        if date and not (start_date or end_date):
             qs = qs.filter(start_time__date=date)
-        return qs
+        return qs.order_by('start_time')
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -100,6 +106,21 @@ class TripViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    @decorators.action(detail=True, methods=['post', 'delete'], url_path='save-recommendation')
+    def save_recommendation(self, request, pk=None):
+        """Save or clear an AI recommendation on this trip."""
+        trip = self.get_object()
+        if request.method == 'DELETE':
+            trip.saved_recommendation = None
+            trip.save(update_fields=['saved_recommendation'])
+            return Response({'status': 'cleared', 'trip_id': trip.id})
+        recommendation = request.data.get('recommendation')
+        if not recommendation:
+            return Response({'detail': 'recommendation payload is required.'}, status=400)
+        trip.saved_recommendation = recommendation
+        trip.save(update_fields=['saved_recommendation'])
+        return Response({'status': 'saved', 'trip_id': trip.id})
 
 
 class PackingChecklistViewSet(viewsets.ModelViewSet):

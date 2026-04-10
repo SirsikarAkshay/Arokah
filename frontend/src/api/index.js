@@ -28,7 +28,7 @@ export const wardrobe = {
   luggageWeight: (item_ids, airline = 'default') =>
     api.post('/wardrobe/luggage-weight/', { item_ids, airline }),
   analyzeImage: (file) => {
-    // NB: do not set Content-Type manually — axios fills in the multipart boundary.
+    // NB: do not set Content-Type manually — the browser fills in the multipart boundary.
     const fd = new FormData()
     fd.append('image', file)
     return api.post('/wardrobe/analyze-image/', fd)
@@ -49,8 +49,14 @@ export const itinerary = {
   },
   trips: {
     list:   ()     => api.get('/itinerary/trips/'),
+    get:    (id)   => api.get(`/itinerary/trips/${id}/`),
     create: (data) => api.post('/itinerary/trips/', data),
+    update: (id, data) => api.patch(`/itinerary/trips/${id}/`, data),
     delete: (id)   => api.delete(`/itinerary/trips/${id}/`),
+    saveRecommendation: (id, recommendation) =>
+      api.post(`/itinerary/trips/${id}/save-recommendation/`, { recommendation }),
+    clearRecommendation: (id) =>
+      api.delete(`/itinerary/trips/${id}/save-recommendation/`),
   },
 }
 
