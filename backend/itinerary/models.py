@@ -57,7 +57,12 @@ class CalendarEvent(models.Model):
 class Trip(models.Model):
     user        = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trips')
     name        = models.CharField(max_length=200)
-    destination = models.CharField(max_length=200)
+    destination = models.CharField(max_length=400)
+    # Structured destination. `country` is the trip's country, `cities` is a list
+    # of cities/towns inside that country (multi-city trips). `destination` is
+    # auto-derived on save for backward compatibility with older code paths.
+    country     = models.CharField(max_length=120, blank=True, default='')
+    cities      = models.JSONField(default=list, blank=True)
     start_date  = models.DateField()
     end_date    = models.DateField()
     notes       = models.TextField(blank=True)
@@ -66,6 +71,15 @@ class Trip(models.Model):
 
     class Meta:
         ordering = ['-start_date']
+
+    def save(self, *args, **kwargs):
+        # Keep `destination` in sync with structured fields when provided.
+        if self.country or self.cities:
+            parts = [c for c in (self.cities or []) if c] + ([self.country] if self.country else [])
+            derived = ', '.join(parts)
+            if derived:
+                self.destination = derived[:400]
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.user.email} — {self.name}'

@@ -281,3 +281,7 @@ MICROSOFT_REDIRECT_URI   = os.getenv('MICROSOFT_REDIRECT_URI',
 
 # Outlook connection tracking (stored on User model via outlook_calendar_token)
 OUTLOOK_CALENDAR_CONNECTED_FIELD = 'outlook_calendar_token'
+
+# ── Firebase Cloud Messaging (push notifications) ────────────────────────────
+# Auth: gcloud auth application-default login (local dev)
+#        or GOOGLE_APPLICATION_CREDENTIALS env var (prod)

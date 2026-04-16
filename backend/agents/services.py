@@ -1091,7 +1091,37 @@ def run_smart_recommend(user, input_data: dict) -> dict:
     live weather data, and Mistral-powered cultural intelligence to produce
     outfit recommendations.  Items found in the user's wardrobe are returned
     directly; gaps include shopping links.
+
+    If `cities` (list[str]) is provided alongside `country`, runs a per-city
+    recommendation in parallel and returns an aggregated multi-city response.
     """
     from arokah.services.recommendation_engine import recommend
+    from concurrent.futures import ThreadPoolExecutor
+
+    cities  = [c for c in (input_data.get('cities') or []) if isinstance(c, str) and c.strip()]
+    country = (input_data.get('country') or '').strip()
+
+    if len(cities) > 1:
+        def _run(city: str) -> dict:
+            payload = dict(input_data)
+            payload['destination'] = f'{city}, {country}' if country else city
+            payload.pop('cities', None)
+            return recommend(user, payload)
+
+        with ThreadPoolExecutor(max_workers=min(4, len(cities))) as ex:
+            results = list(ex.map(_run, cities))
+
+        return {
+            'multi_city': True,
+            'country':    country,
+            'cities':     [{'city': c, 'recommendation': r} for c, r in zip(cities, results)],
+        }
+
+    # Single-destination path (possibly with one city)
+    if cities and not input_data.get('destination'):
+        only = cities[0]
+        input_data = dict(input_data)
+        input_data['destination'] = f'{only}, {country}' if country else only
+
     return recommend(user, input_data)
 

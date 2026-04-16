@@ -373,9 +373,7 @@ export default function ProfilePage() {
                 )
               } note={calStatus?.outlook?.email || 'Microsoft 365 via OAuth'} />
 
-              <Row label="Push notifications" value="Not configured" note="Add Firebase key to enable" />
-              <Row label="AI engine" value="Mistral AI" />
-              <Row label="Data region" value="Switzerland 🇨🇭" />
+              <Row label="Push notifications" value="Mobile app only" note="Toggle in the Arokah mobile app under Profile" />
             </div>
           </div>
 

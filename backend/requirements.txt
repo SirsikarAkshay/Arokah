@@ -36,6 +36,9 @@ pytz>=2024.1
 # AI — uncomment to activate live agents
 mistralai>=1.0,<2.0
 
+# Firebase (push notifications)
+firebase-admin>=6.5,<7.0
+
 # ML — fashion recommendation model
 torch>=2.0
 torchvision>=0.15

@@ -1,6 +1,7 @@
 // src/pages/TripPlannerPage.jsx
 import { useState, useEffect } from 'react'
 import { itinerary as itineraryApi, agents } from '../api/index.js'
+import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
 
 export default function TripPlannerPage() {
   const [trips,    setTrips]    = useState([])
@@ -11,12 +12,14 @@ export default function TripPlannerPage() {
   const [recs,     setRecs]     = useState(null)  // { trip_id, output }
   const [saving,   setSaving]   = useState(false)
   const [error,    setError]    = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(null) // trip id pending delete
+  const [deleting, setDeleting] = useState(false)
 
   const [form, setForm] = useState({
-    name: '', destination: '', start_date: '', end_date: '', activities: '',
+    name: '', country: '', countryCode: '', cities: [], start_date: '', end_date: '', activities: '',
   })
   const [editForm, setEditForm] = useState({
-    name: '', destination: '', start_date: '', end_date: '', activities: '',
+    name: '', country: '', countryCode: '', cities: [], start_date: '', end_date: '', activities: '',
   })
 
   useEffect(() => {
@@ -26,18 +29,30 @@ export default function TripPlannerPage() {
       .finally(() => setLoading(false))
   }, [])
 
+  const deriveDestination = (country, cities) => {
+    const parts = [...(cities || []).filter(Boolean)]
+    if (country) parts.push(country)
+    return parts.join(', ')
+  }
+
   const createTrip = async (e) => {
     e.preventDefault()
+    if (!form.country || form.cities.length === 0) {
+      setError('Please select a country and at least one city.')
+      return
+    }
     try {
       const trip = await itineraryApi.trips.create({
         name: form.name,
-        destination: form.destination,
+        destination: deriveDestination(form.country, form.cities),
+        country: form.country,
+        cities: form.cities,
         start_date: form.start_date,
         end_date: form.end_date,
         notes: form.activities,
       })
       setTrips(prev => [trip, ...prev])
-      setForm({ name: '', destination: '', start_date: '', end_date: '', activities: '' })
+      setForm({ name: '', country: '', countryCode: '', cities: [], start_date: '', end_date: '', activities: '' })
       setShowNew(false)
     } catch (err) {
       setError(err.message)
@@ -48,7 +63,9 @@ export default function TripPlannerPage() {
     setEditing(trip.id)
     setEditForm({
       name: trip.name,
-      destination: trip.destination,
+      country: trip.country || '',
+      countryCode: '',
+      cities: Array.isArray(trip.cities) ? trip.cities : [],
       start_date: trip.start_date,
       end_date: trip.end_date,
       activities: trip.notes || '',
@@ -57,10 +74,16 @@ export default function TripPlannerPage() {
 
   const updateTrip = async (e) => {
     e.preventDefault()
+    if (!editForm.country || editForm.cities.length === 0) {
+      setError('Please select a country and at least one city.')
+      return
+    }
     try {
       const updated = await itineraryApi.trips.update(editing, {
         name: editForm.name,
-        destination: editForm.destination,
+        destination: deriveDestination(editForm.country, editForm.cities),
+        country: editForm.country,
+        cities: editForm.cities,
         start_date: editForm.start_date,
         end_date: editForm.end_date,
         notes: editForm.activities,
@@ -76,12 +99,16 @@ export default function TripPlannerPage() {
     setRecommending(trip.id)
     setError('')
     try {
-      const result = await agents.smartRecommend({
+      const cities = Array.isArray(trip.cities) ? trip.cities : []
+      const payload = {
         destination: trip.destination,
         start_date: trip.start_date,
         end_date: trip.end_date,
         occasion: 'travel',
-      })
+      }
+      if (trip.country) payload.country = trip.country
+      if (cities.length) payload.cities = cities
+      const result = await agents.smartRecommend(payload)
       const output = result?.output || result
       setRecs({ trip_id: trip.id, output })
     } catch (err) {
@@ -123,12 +150,26 @@ export default function TripPlannerPage() {
     setRecs({ trip_id: trip.id, output: trip.saved_recommendation, saved: true })
   }
 
-  const deleteTrip = async (id) => {
-    if (!confirm('Delete this trip?')) return
-    await itineraryApi.trips.delete(id)
-    setTrips(prev => prev.filter(t => t.id !== id))
-    if (recs?.trip_id === id) setRecs(null)
+  const deleteTrip = async () => {
+    const id = confirmDelete
+    if (!id) return
+    setDeleting(true)
+    setError('')
+    try {
+      await itineraryApi.trips.delete(id)
+      setTrips(prev => prev.filter(t => t.id !== id))
+      if (recs?.trip_id === id) setRecs(null)
+      setConfirmDelete(null)
+    } catch (err) {
+      setError(err.message || 'Failed to delete trip.')
+    } finally {
+      setDeleting(false)
+    }
   }
+
+  const tripPendingDelete = confirmDelete
+    ? trips.find(t => t.id === confirmDelete)
+    : null
 
   const daysUntil = (date) => {
     const d = Math.ceil((new Date(date) - new Date()) / 86400000)
@@ -164,8 +205,27 @@ export default function TripPlannerPage() {
               <input className="input" required placeholder="e.g. Tokyo Adventure" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
             </div>
             <div className="input-group" style={{ gridColumn: 'span 2' }}>
-              <label className="input-label">Destination *</label>
-              <input className="input" required placeholder="e.g. Tokyo, Japan" value={form.destination} onChange={e => setForm(f => ({ ...f, destination: e.target.value }))} />
+              <label className="input-label">Country *</label>
+              <PlaceAutocomplete
+                value={form.country}
+                onChange={(v) => setForm(f => ({ ...f, country: v, countryCode: '' }))}
+                onSelect={(p) => setForm(f => ({ ...f, country: p.country || p.name, countryCode: p.country_code || '' }))}
+                placeholder="e.g. Japan"
+                mode="country"
+                required
+              />
+            </div>
+            <div className="input-group" style={{ gridColumn: 'span 2' }}>
+              <label className="input-label">Cities *</label>
+              <CityMultiSelect
+                cities={form.cities}
+                country={form.country}
+                countryCode={form.countryCode}
+                disabled={!form.country}
+                disabledHint="Select a country first"
+                onAdd={(c) => setForm(f => f.cities.includes(c) ? f : { ...f, cities: [...f.cities, c] })}
+                onRemove={(c) => setForm(f => ({ ...f, cities: f.cities.filter(x => x !== c) }))}
+              />
             </div>
             <div className="input-group">
               <label className="input-label">Departure *</label>
@@ -218,8 +278,26 @@ export default function TripPlannerPage() {
                         <input className="input" required value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
                       </div>
                       <div className="input-group" style={{ gridColumn: 'span 2' }}>
-                        <label className="input-label">Destination *</label>
-                        <input className="input" required value={editForm.destination} onChange={e => setEditForm(f => ({ ...f, destination: e.target.value }))} />
+                        <label className="input-label">Country *</label>
+                        <PlaceAutocomplete
+                          value={editForm.country}
+                          onChange={(v) => setEditForm(f => ({ ...f, country: v, countryCode: '' }))}
+                          onSelect={(p) => setEditForm(f => ({ ...f, country: p.country || p.name, countryCode: p.country_code || '' }))}
+                          mode="country"
+                          required
+                        />
+                      </div>
+                      <div className="input-group" style={{ gridColumn: 'span 2' }}>
+                        <label className="input-label">Cities *</label>
+                        <CityMultiSelect
+                          cities={editForm.cities}
+                          country={editForm.country}
+                          countryCode={editForm.countryCode}
+                          disabled={!editForm.country}
+                          disabledHint="Select a country first"
+                          onAdd={(c) => setEditForm(f => f.cities.includes(c) ? f : { ...f, cities: [...f.cities, c] })}
+                          onRemove={(c) => setEditForm(f => ({ ...f, cities: f.cities.filter(x => x !== c) }))}
+                        />
                       </div>
                       <div className="input-group">
                         <label className="input-label">Departure *</label>
@@ -254,7 +332,10 @@ export default function TripPlannerPage() {
                       {hasSaved && <span className="badge badge-sage" style={{ fontSize: '0.65rem' }}>Saved plan</span>}
                     </div>
                     <div style={{ fontSize: '0.875rem', color: 'var(--cream-dim)' }}>
-                      📍 {trip.destination} · {numDays} day{numDays !== 1 ? 's' : ''} · {trip.start_date} → {trip.end_date}
+                      📍 {Array.isArray(trip.cities) && trip.cities.length > 0
+                            ? `${trip.cities.join(', ')}${trip.country ? ` · ${trip.country}` : ''}`
+                            : trip.destination}
+                      {' · '}{numDays} day{numDays !== 1 ? 's' : ''} · {trip.start_date} → {trip.end_date}
                     </div>
                     {trip.notes && (
                       <div style={{ fontSize: '0.8rem', color: 'var(--cream-dim)', marginTop: '4px', fontStyle: 'italic' }}>
@@ -279,7 +360,7 @@ export default function TripPlannerPage() {
                       }
                     </button>
                     <button className="btn btn-ghost btn-icon btn-sm" onClick={() => startEditing(trip)} title="Edit trip">✎</button>
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteTrip(trip.id)} title="Delete trip">✕</button>
+                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setConfirmDelete(trip.id)} title="Delete trip">✕</button>
                   </div>
                 </div>
                 )}
@@ -301,6 +382,110 @@ export default function TripPlannerPage() {
           })}
         </div>
       )}
+
+      {tripPendingDelete && (
+        <ConfirmDialog
+          title="Delete this trip?"
+          body={`"${tripPendingDelete.name}" will be permanently removed. This cannot be undone.`}
+          confirmLabel={deleting ? 'Deleting…' : 'Delete trip'}
+          confirmDisabled={deleting}
+          onConfirm={deleteTrip}
+          onCancel={() => { if (!deleting) setConfirmDelete(null) }}
+        />
+      )}
+    </div>
+  )
+}
+
+
+/* ── In-app confirm dialog ──────────────────────────────────────────── */
+
+function ConfirmDialog({ title, body, confirmLabel, onConfirm, onCancel, confirmDisabled }) {
+  return (
+    <div
+      onClick={onCancel}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 2147483000,
+        background: 'rgba(0,0,0,0.55)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="card"
+        style={{ maxWidth: 420, width: '100%', padding: 22 }}
+      >
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem', color: 'var(--cream)', marginBottom: 8 }}>
+          {title}
+        </div>
+        <div style={{ fontSize: '0.875rem', color: 'var(--cream-dim)', lineHeight: 1.5, marginBottom: 18 }}>
+          {body}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button className="btn btn-ghost btn-sm" onClick={onCancel} disabled={confirmDisabled}>Cancel</button>
+          <button
+            className="btn btn-sm"
+            onClick={onConfirm}
+            disabled={confirmDisabled}
+            style={{ background: 'var(--danger, #c65a4a)', color: 'var(--cream)' }}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+/* ── City multi-select ───────────────────────────────────────────────── */
+
+function CityMultiSelect({ cities, country, countryCode, disabled, disabledHint, onAdd, onRemove }) {
+  const [draft, setDraft] = useState('')
+  return (
+    <div>
+      <PlaceAutocomplete
+        value={draft}
+        onChange={setDraft}
+        onSelect={(p) => {
+          const label = p.name
+          if (label) onAdd(label)
+          setDraft('')
+        }}
+        placeholder="Type a city and select…"
+        mode="city"
+        countryCode={countryCode || null}
+        countryName={country || null}
+        disabled={disabled}
+        disabledHint={disabledHint}
+      />
+      {cities.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+          {cities.map((c) => (
+            <span
+              key={c}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '4px 10px', borderRadius: 999,
+                background: 'var(--surface-2)', border: '1px solid var(--border)',
+                color: 'var(--cream)', fontSize: '0.8rem',
+              }}
+            >
+              📍 {c}
+              <button
+                type="button"
+                onClick={() => onRemove(c)}
+                aria-label={`Remove ${c}`}
+                style={{
+                  background: 'transparent', border: 'none', color: 'var(--cream-dim)',
+                  cursor: 'pointer', padding: 0, fontSize: '0.9rem', lineHeight: 1,
+                }}
+              >✕</button>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -309,11 +494,14 @@ export default function TripPlannerPage() {
 /* ── Trip Recommendations — tabbed layout ────────────────────────────── */
 
 function TripRecommendations({ output, tripId, isSaved, onClose, onSave, onClear, saving }) {
+  const isMultiCity = !!output?.multi_city && Array.isArray(output?.cities)
+  const [cityIdx, setCityIdx] = useState(0)
+  const cityOutput = isMultiCity ? (output.cities[cityIdx]?.recommendation || {}) : output
   const [activeTab, setActiveTab] = useState('outfits')
 
-  const cultural = output.cultural || {}
-  const shopping = output.shopping_suggestions || []
-  const days     = output.days || []
+  const cultural = cityOutput.cultural || {}
+  const shopping = cityOutput.shopping_suggestions || []
+  const days     = cityOutput.days || []
   const highlights = cultural.highlights || []
 
   // Counts for tab badges
@@ -331,6 +519,31 @@ function TripRecommendations({ output, tripId, isSaved, onClose, onSave, onClear
 
   return (
     <div style={{ marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
+      {/* Multi-city city tabs */}
+      {isMultiCity && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+          {output.cities.map((entry, i) => (
+            <button
+              key={entry.city + i}
+              type="button"
+              onClick={() => setCityIdx(i)}
+              className="btn btn-ghost btn-sm"
+              style={{
+                border: '1px solid var(--border)',
+                borderRadius: 999,
+                background: cityIdx === i ? 'var(--terra)' : 'transparent',
+                color: cityIdx === i ? 'var(--cream)' : 'var(--cream-dim)',
+                fontWeight: cityIdx === i ? 500 : 400,
+                fontSize: '0.8rem',
+                padding: '5px 14px',
+              }}
+            >
+              📍 {entry.city}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Header with save/close */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <div className="card-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -405,7 +618,7 @@ function TripRecommendations({ output, tripId, isSaved, onClose, onSave, onClear
 
       {/* ── Tab: Outfit Plan ──────────────────────────────────────────── */}
       {activeTab === 'outfits' && (
-        <OutfitPlanTab days={days} output={output} />
+        <OutfitPlanTab days={days} output={cityOutput} />
       )}
 
       {/* ─�� Tab: Items to Buy ──────��──────────────────────────────────── */}
@@ -436,6 +649,8 @@ function OutfitPlanTab({ days, output }) {
   }
 
   const weatherIcon = (w) => w?.is_raining ? '🌧' : w?.is_cold ? '🧥' : w?.is_hot ? '☀' : '⛅'
+  const isEstimated = (w) => w?.source === 'climatology' || w?.source === 'estimated'
+  const anyEstimated = days.some(d => isEstimated(d.weather))
 
   // Multi-day
   if (days.length > 0) {
@@ -459,6 +674,10 @@ function OutfitPlanTab({ days, output }) {
                 <span style={{ fontSize: '1.1rem' }}>{weatherIcon(w)}</span>
                 <span style={{ fontSize: '0.8125rem', color: 'var(--cream-dim)' }}>
                   {w?.temp_c != null ? `${Math.round(w.temp_c)}°C` : '?'} · {w?.condition || ''}
+                  {isEstimated(w) && (
+                    <span title="Estimated from historical averages — no live forecast available."
+                      style={{ color: 'var(--terra-light)', marginLeft: 2, fontWeight: 500 }}>*</span>
+                  )}
                 </span>
                 {w?.precipitation_probability > 30 && (
                   <span className="badge badge-sky" style={{ fontSize: '0.6rem' }}>
@@ -523,6 +742,11 @@ function OutfitPlanTab({ days, output }) {
             </div>
           )
         })}
+        {anyEstimated && (
+          <div style={{ fontSize: '0.72rem', color: 'var(--cream-dim)', fontStyle: 'italic', marginTop: 4 }}>
+            <span style={{ color: 'var(--terra-light)' }}>*</span> Estimated from historical averages — live forecast not yet available for these dates.
+          </div>
+        )}
       </div>
     )
   }

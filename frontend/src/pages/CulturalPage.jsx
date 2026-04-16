@@ -1,6 +1,7 @@
 // src/pages/CulturalPage.jsx
 import { useState } from 'react'
-import { cultural, agents } from '../api/index.js'
+import { agents } from '../api/index.js'
+import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
 
 const SEVERITY_STYLE = {
   required: { badge: 'badge-terra',  icon: '⚠' },
@@ -22,16 +23,16 @@ const RULE_ICONS = {
 
 export default function CulturalPage() {
   const [country,  setCountry]  = useState('')
+  const [countryCode, setCountryCode] = useState('')
   const [city,     setCity]     = useState('')
   const [rules,    setRules]    = useState(null)
   const [events,   setEvents]   = useState(null)
   const [advice,   setAdvice]   = useState(null)
   const [loading,  setLoading]  = useState(false)
-  const [aiLoading,setAiLoading]= useState(false)
   const [error,    setError]    = useState('')
   const [activeTab,setActiveTab]= useState('etiquette')
 
-  const search = async (e) => {
+  const getAdvice = async (e) => {
     e?.preventDefault()
     if (!country.trim()) return
     setLoading(true)
@@ -39,39 +40,19 @@ export default function CulturalPage() {
     setAdvice(null)
     setActiveTab('etiquette')
     try {
-      const [r, ev] = await Promise.all([
-        cultural.rules(country, city),
-        cultural.events(country, new Date().getMonth() + 1),
-      ])
-      setRules(r?.results || [])
-      setEvents(ev?.results || [])
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const getAiAdvice = async () => {
-    setAiLoading(true)
-    setError('')
-    try {
       const result = await agents.culturalAdvisor({ country, city })
       if (result.status === 'completed') {
         const out = result.output || {}
         setAdvice(out)
-        // The agent returns the full ruleset (DB + AI-generated). Replace the
-        // existing state so the UI shows everything the AI produced, not just
-        // whatever the DB-only endpoint returned earlier.
-        if (Array.isArray(out.rules))        setRules(out.rules)
-        if (Array.isArray(out.local_events)) setEvents(out.local_events)
+        setRules(Array.isArray(out.rules) ? out.rules : [])
+        setEvents(Array.isArray(out.local_events) ? out.local_events : [])
       } else {
         setError(result.error || 'AI advisor failed')
       }
     } catch (err) {
       setError(err.message)
     } finally {
-      setAiLoading(false)
+      setLoading(false)
     }
   }
 
@@ -90,31 +71,55 @@ export default function CulturalPage() {
         <p>Etiquette rules, local events, and clothing advice for your destination.</p>
       </div>
 
-      {/* Search */}
-      <form onSubmit={search} style={{ display: 'flex', gap: '10px', marginBottom: '16px' }} className="fade-up fade-up-delay-1">
-        <input className="input" placeholder="Country (e.g. Turkey)" value={country} onChange={e => setCountry(e.target.value)} style={{ maxWidth: '200px' }} required />
-        <input className="input" placeholder="City (optional)" value={city} onChange={e => setCity(e.target.value)} style={{ maxWidth: '160px' }} />
-        <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '🔍 Search'}
-        </button>
-        {rules !== null && country && (
-          <button type="button" className="btn btn-secondary" onClick={getAiAdvice} disabled={aiLoading}>
-            {aiLoading ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Thinking…</> : '✦ AI Advice'}
-          </button>
-        )}
-      </form>
-
-      {/* Popular countries */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '32px' }} className="fade-up fade-up-delay-1">
-        {POPULAR.map(c => (
-          <button key={c} className="btn btn-ghost btn-sm"
-            style={{ borderRadius: 100, border: '1px solid var(--border)', fontSize: '0.75rem' }}
-            onClick={() => { setCountry(c); setTimeout(() => document.querySelector('form')?.requestSubmit(), 50) }}
-          >
-            {c}
-          </button>
-        ))}
+      {/* Popular countries — shown above the search so the autocomplete
+          dropdown expands into empty space and never overlaps these chips. */}
+      <div style={{ marginBottom: 12 }} className="fade-up fade-up-delay-1">
+        <div style={{ fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--cream-dim)', marginBottom: 8 }}>
+          Popular
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {POPULAR.map(c => (
+            <button key={c} type="button" className="btn btn-ghost btn-sm"
+              style={{ borderRadius: 100, border: '1px solid var(--border)', fontSize: '0.75rem' }}
+              onClick={() => { setCountry(c); setCountryCode(''); setCity('') }}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {/* Search */}
+      <form onSubmit={getAdvice} style={{ display: 'flex', gap: '10px', marginBottom: '24px', flexWrap: 'wrap', alignItems: 'flex-start' }} className="fade-up fade-up-delay-1">
+        <PlaceAutocomplete
+          value={country}
+          onChange={(v) => { setCountry(v); setCountryCode('') }}
+          onSelect={(p) => {
+            setCountry(p.country || p.name || '')
+            setCountryCode(p.country_code || '')
+            setCity('')
+          }}
+          mode="country"
+          placeholder="Country (e.g. Turkey)"
+          style={{ width: 220 }}
+          required
+        />
+        <PlaceAutocomplete
+          value={city}
+          onChange={setCity}
+          onSelect={(p) => setCity(p.name || '')}
+          mode="city"
+          countryCode={countryCode || null}
+          countryName={country || null}
+          disabled={!country}
+          disabledHint="Pick a country first"
+          placeholder="City (optional)"
+          style={{ width: 220 }}
+        />
+        <button type="submit" className="btn btn-primary" disabled={loading}>
+          {loading ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Thinking…</> : '✦ Get Cultural Guide'}
+        </button>
+      </form>
 
       {error && <div className="alert alert-error" style={{ marginBottom: '20px' }}>⚠ {error}</div>}
 
@@ -230,7 +235,7 @@ export default function CulturalPage() {
             <div className="empty-state card">
               <div className="empty-icon">📜</div>
               <div className="empty-title">No etiquette rules found</div>
-              <div className="empty-body">Try searching a different destination or request AI advice above.</div>
+              <div className="empty-body">Try a different destination.</div>
             </div>
           )}
           {rules.length > 0 && (
@@ -269,7 +274,7 @@ export default function CulturalPage() {
               <div className="empty-state card">
                 <div className="empty-icon">📍</div>
                 <div className="empty-title">No places yet</div>
-                <div className="empty-body">Tap ✦ AI Advice above to get popular destinations with clothing guidance.</div>
+                <div className="empty-body">Try a different destination.</div>
               </div>
             ) : (
             <>
@@ -334,7 +339,7 @@ export default function CulturalPage() {
               <div className="empty-state card">
                 <div className="empty-icon">👔</div>
                 <div className="empty-title">No wardrobe advice yet</div>
-                <div className="empty-body">Tap ✦ AI Advice above to see which of your items work and what's missing.</div>
+                <div className="empty-body">Add items to your wardrobe to see matches and gaps for this destination.</div>
               </div>
             )}
           {advice?.wardrobe_matches?.length > 0 && (
@@ -424,7 +429,7 @@ export default function CulturalPage() {
               <div className="empty-state card">
                 <div className="empty-icon">🎊</div>
                 <div className="empty-title">No events found</div>
-                <div className="empty-body">We couldn't find upcoming events for this destination. Try ✦ AI Advice for suggestions.</div>
+                <div className="empty-body">Nothing notable this month for this destination.</div>
               </div>
             ) : (
             <>
@@ -515,8 +520,8 @@ export default function CulturalPage() {
       {rules === null && !loading && (
         <div className="empty-state card fade-up fade-up-delay-2">
           <div className="empty-icon">🌍</div>
-          <div className="empty-title">Search a destination</div>
-          <div className="empty-body">Enter a country above to see etiquette rules, local events, and clothing advice.</div>
+          <div className="empty-title">Pick a destination</div>
+          <div className="empty-body">Enter a country above and tap Get Cultural Guide for etiquette, events, places, and wardrobe advice.</div>
         </div>
       )}
     </div>
