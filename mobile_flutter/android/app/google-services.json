@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "862960610034",
+    "project_id": "arokah-d747f",
+    "storage_bucket": "arokah-d747f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:862960610034:android:7e3b8f2dc46025544efe6b",
+        "android_client_info": {
+          "package_name": "com.arokah.arokah_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB9687qyfz4Vycqhxm7ZttqkYFmLb-en6Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

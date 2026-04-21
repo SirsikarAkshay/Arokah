@@ -6,12 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="cade1bb6-4614-4724-b6b1-3b47eecb83d1" name="Changes" comment="Push to the arokah repo">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/itinerary/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/itinerary/views.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/shared_wardrobe/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/shared_wardrobe/urls.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/shared_wardrobe/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/shared_wardrobe/views.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/api/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/api/index.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/SharedWardrobeDetailPage.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/SharedWardrobeDetailPage.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/TripPlannerPage.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/TripPlannerPage.jsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -81,7 +75,7 @@
       <option name="presentableId" value="Default" />
       <updated>1775756878964</updated>
       <workItem from="1775756880005" duration="30260000" />
-      <workItem from="1776156802910" duration="66242000" />
+      <workItem from="1776156802910" duration="69547000" />
     </task>
     <task id="LOCAL-00001" summary="Push to the arokah repo">
       <option name="closed" value="true" />
@@ -123,7 +117,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776769475173</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="Push to the arokah repo">
+      <option name="closed" value="true" />
+      <created>1776772721921</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1776772721921</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
