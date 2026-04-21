@@ -8,7 +8,7 @@ from .views import (
     InvitationListView,
     InvitationRespondView,
     ItemListCreateView,
-    ItemDeleteView,
+    ItemDetailView,
 )
 
 urlpatterns = [
@@ -19,5 +19,5 @@ urlpatterns = [
     path('<int:pk>/members/',                   MemberAddView.as_view()),
     path('<int:pk>/members/<int:user_id>/',     MemberRemoveView.as_view()),
     path('<int:pk>/items/',                     ItemListCreateView.as_view()),
-    path('<int:pk>/items/<int:item_id>/',       ItemDeleteView.as_view()),
+    path('<int:pk>/items/<int:item_id>/',       ItemDetailView.as_view()),
 ]

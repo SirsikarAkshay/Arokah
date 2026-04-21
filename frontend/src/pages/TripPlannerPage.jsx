@@ -134,11 +134,18 @@ export default function TripPlannerPage() {
     if (!recs || recs.trip_id !== tripId) return
     setSaving(true)
     try {
-      await itineraryApi.trips.saveRecommendation(tripId, recs.output)
+      const result = await itineraryApi.trips.saveRecommendation(tripId, recs.output)
       setTrips(prev => prev.map(t =>
         t.id === tripId ? { ...t, saved_recommendation: recs.output } : t
       ))
       setRecs(null)
+      if (result.shared_wardrobe_items_added > 0) {
+        const trip = trips.find(t => t.id === tripId)
+        window.__toast?.(
+          `Plan saved. ${result.shared_wardrobe_items_added} item${result.shared_wardrobe_items_added > 1 ? 's' : ''} added to "${trip?.shared_wardrobe_name || 'shared wardrobe'}".`,
+          'success',
+        )
+      }
     } catch (err) {
       setError(err.message || 'Failed to save recommendation.')
     } finally {

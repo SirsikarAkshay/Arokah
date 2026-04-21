@@ -325,32 +325,66 @@ class ItemListCreateView(APIView):
         return Response(payload, status=status.HTTP_201_CREATED)
 
 
-class ItemDeleteView(APIView):
+class ItemDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def delete(self, request, pk, item_id):
+    def _get_wardrobe_and_item(self, request, pk, item_id):
         try:
             wardrobe = SharedWardrobe.objects.get(pk=pk)
         except SharedWardrobe.DoesNotExist:
-            return Response({'error': {'code': 'not_found', 'message': 'Not found.'}},
-                            status=status.HTTP_404_NOT_FOUND)
+            return None, None, Response(
+                {'error': {'code': 'not_found', 'message': 'Not found.'}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         err = _require_member(wardrobe, request.user)
         if err:
-            return err
-
+            return None, None, err
         item = wardrobe.items.filter(pk=item_id).first()
         if not item:
-            return Response({'error': {'code': 'not_found', 'message': 'Item not found.'}},
-                            status=status.HTTP_404_NOT_FOUND)
+            return None, None, Response(
+                {'error': {'code': 'not_found', 'message': 'Item not found.'}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return wardrobe, item, None
 
-        # Only the owner or the user who added the item can delete it
-        is_owner = wardrobe.member_role(request.user) == MemberRole.OWNER
-        if not is_owner and item.added_by_id != request.user.pk:
+    def _require_edit_permission(self, wardrobe, item, user):
+        is_owner = wardrobe.member_role(user) == MemberRole.OWNER
+        if not is_owner and item.added_by_id != user.pk:
             return Response(
                 {'error': {'code': 'forbidden',
-                           'message': 'Only the wardrobe owner or the item adder can delete this.'}},
+                           'message': 'Only the wardrobe owner or the item adder can modify this.'}},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        return None
+
+    def patch(self, request, pk, item_id):
+        wardrobe, item, err = self._get_wardrobe_and_item(request, pk, item_id)
+        if err:
+            return err
+        perm_err = self._require_edit_permission(wardrobe, item, request.user)
+        if perm_err:
+            return perm_err
+
+        EDITABLE = ('name', 'category', 'brand', 'image_url', 'notes')
+        updated_fields = []
+        for field in EDITABLE:
+            if field in request.data:
+                setattr(item, field, (request.data[field] or '').strip() if field != 'category' else request.data[field])
+                updated_fields.append(field)
+        if updated_fields:
+            item.save(update_fields=updated_fields)
+
+        payload = SharedWardrobeItemSerializer(item, context={'request': request}).data
+        _broadcast(wardrobe.id, 'item_updated', payload)
+        return Response(payload)
+
+    def delete(self, request, pk, item_id):
+        wardrobe, item, err = self._get_wardrobe_and_item(request, pk, item_id)
+        if err:
+            return err
+        perm_err = self._require_edit_permission(wardrobe, item, request.user)
+        if perm_err:
+            return perm_err
 
         item.delete()
         _broadcast(wardrobe.id, 'item_removed', {'item_id': int(item_id)})

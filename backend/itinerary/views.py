@@ -137,7 +137,71 @@ class TripViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'recommendation payload is required.'}, status=400)
         trip.saved_recommendation = recommendation
         trip.save(update_fields=['saved_recommendation'])
-        return Response({'status': 'saved', 'trip_id': trip.id})
+
+        items_added = 0
+        if trip.shared_wardrobe_id:
+            items_added = self._push_items_to_shared_wardrobe(
+                trip.shared_wardrobe, request.user, recommendation,
+            )
+
+        return Response({
+            'status': 'saved',
+            'trip_id': trip.id,
+            'shared_wardrobe_items_added': items_added,
+        })
+
+    @staticmethod
+    def _push_items_to_shared_wardrobe(wardrobe, user, recommendation):
+        from shared_wardrobe.models import SharedWardrobeItem
+        from wardrobe.models import ClothingItem
+
+        seen_ids = set()
+        items_to_add = []
+
+        def collect_matches(data):
+            if isinstance(data, dict):
+                for day in data.get('days', []):
+                    for m in day.get('wardrobe_matches', []):
+                        item = m.get('item', {})
+                        if item.get('id') and item['id'] not in seen_ids:
+                            seen_ids.add(item['id'])
+                            items_to_add.append((item['id'], m.get('role', 'other')))
+                if data.get('multi_city') and isinstance(data.get('cities'), list):
+                    for city_entry in data['cities']:
+                        collect_matches(city_entry.get('recommendation', {}))
+
+        collect_matches(recommendation)
+        if not items_to_add:
+            return 0
+
+        clothing_items = {
+            ci.id: ci for ci in ClothingItem.objects.filter(
+                id__in=[i[0] for i in items_to_add],
+            )
+        }
+
+        existing_names = set(
+            wardrobe.items.values_list('name', flat=True)
+        )
+
+        created = 0
+        for ci_id, role in items_to_add:
+            ci = clothing_items.get(ci_id)
+            if not ci or ci.name in existing_names:
+                continue
+            CATEGORY_MAP = {'top', 'bottom', 'dress', 'outerwear', 'footwear', 'accessory', 'other'}
+            category = ci.category if ci.category in CATEGORY_MAP else 'other'
+            SharedWardrobeItem.objects.create(
+                wardrobe=wardrobe,
+                added_by=user,
+                name=ci.name,
+                category=category,
+                brand=ci.brand or '',
+                notes=f"Added from trip recommendation ({role})",
+            )
+            existing_names.add(ci.name)
+            created += 1
+        return created
 
 
 class PackingChecklistViewSet(viewsets.ModelViewSet):

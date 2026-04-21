@@ -16,6 +16,7 @@ export default function SharedWardrobeDetailPage() {
   const [error, setError]       = useState('')
   const [showAddItem, setShowAddItem] = useState(false)
   const [showInvite, setShowInvite]   = useState(false)
+  const [editingItem, setEditingItem] = useState(null)
   const [confirmDialog, setConfirmDialog] = useState(null)
   const wsRef = useRef(null)
 
@@ -45,6 +46,8 @@ export default function SharedWardrobeDetailPage() {
       const { event_type, payload } = data
       if (event_type === 'item_added') {
         setItems(prev => prev.some(i => i.id === payload.id) ? prev : [...prev, payload])
+      } else if (event_type === 'item_updated') {
+        setItems(prev => prev.map(i => i.id === payload.id ? { ...i, ...payload } : i))
       } else if (event_type === 'item_removed') {
         setItems(prev => prev.filter(i => i.id !== payload.item_id))
       } else if (event_type === 'member_added') {
@@ -157,38 +160,60 @@ export default function SharedWardrobeDetailPage() {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
               {items.map(item => (
-                <div key={item.id} className="card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {item.image_url && (
-                    <img src={item.image_url} alt={item.name} style={{
-                      width: '100%', height: 140, objectFit: 'cover', borderRadius: 8,
-                    }} />
-                  )}
-                  <div style={{ fontWeight: 500, color: 'var(--cream)', fontSize: '0.9rem' }}>{item.name}</div>
-                  {item.brand && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--cream-dim)' }}>{item.brand}</div>
-                  )}
-                  <div style={{ fontSize: '0.7rem', color: 'var(--terra-light)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    {item.category}
-                  </div>
-                  {item.notes && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--cream-dim)', fontStyle: 'italic' }}>{item.notes}</div>
-                  )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--cream-dim)' }}>
-                      by @{item.added_by?.handle}
-                    </span>
-                    {(isOwner || item.added_by?.id === user?.id) && (
-                      <button
-                        onClick={() => deleteItem(item.id)}
-                        className="btn btn-ghost btn-icon btn-sm"
-                        title="Remove"
-                        style={{ fontSize: '0.85rem' }}
-                      >
-                        ✕
-                      </button>
+                editingItem === item.id ? (
+                  <EditItemForm
+                    key={item.id}
+                    wardrobeId={id}
+                    item={item}
+                    onDone={(updated) => {
+                      setEditingItem(null)
+                      if (updated) setItems(prev => prev.map(i => i.id === updated.id ? updated : i))
+                    }}
+                  />
+                ) : (
+                  <div key={item.id} className="card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {item.image_url && (
+                      <img src={item.image_url} alt={item.name} style={{
+                        width: '100%', height: 140, objectFit: 'cover', borderRadius: 8,
+                      }} />
                     )}
+                    <div style={{ fontWeight: 500, color: 'var(--cream)', fontSize: '0.9rem' }}>{item.name}</div>
+                    {item.brand && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--cream-dim)' }}>{item.brand}</div>
+                    )}
+                    <div style={{ fontSize: '0.7rem', color: 'var(--terra-light)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {item.category}
+                    </div>
+                    {item.notes && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--cream-dim)', fontStyle: 'italic' }}>{item.notes}</div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--cream-dim)' }}>
+                        by @{item.added_by?.handle}
+                      </span>
+                      {(isOwner || item.added_by?.id === user?.id) && (
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button
+                            onClick={() => setEditingItem(item.id)}
+                            className="btn btn-ghost btn-icon btn-sm"
+                            title="Edit"
+                            style={{ fontSize: '0.8rem' }}
+                          >
+                            ✎
+                          </button>
+                          <button
+                            onClick={() => deleteItem(item.id)}
+                            className="btn btn-ghost btn-icon btn-sm"
+                            title="Remove"
+                            style={{ fontSize: '0.85rem' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )
               ))}
             </div>
           )}
@@ -396,6 +421,55 @@ function AddItemForm({ wardrobeId, onDone }) {
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => onDone(null)}>Cancel</button>
         <button type="submit" className="btn btn-primary btn-sm" disabled={saving || !name.trim()}>
           {saving ? 'Adding…' : 'Add item'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+
+// ── Edit item form ────────────────────────────────────────────────────────
+function EditItemForm({ wardrobeId, item, onDone }) {
+  const [name, setName]         = useState(item.name || '')
+  const [category, setCategory] = useState(item.category || 'other')
+  const [brand, setBrand]       = useState(item.brand || '')
+  const [imageUrl, setImageUrl] = useState(item.image_url || '')
+  const [notes, setNotes]       = useState(item.notes || '')
+  const [saving, setSaving]     = useState(false)
+
+  const submit = async (e) => {
+    e?.preventDefault()
+    if (!name.trim() || saving) return
+    setSaving(true)
+    try {
+      const updated = await api.items.update(wardrobeId, item.id, {
+        name: name.trim(), category, brand: brand.trim(),
+        image_url: imageUrl.trim(), notes: notes.trim(),
+      })
+      onDone(updated)
+      window.__toast?.('Item updated.', 'success')
+    } catch (err) {
+      window.__toast?.(err.response?.data?.error?.message || 'Could not update item.', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <input className="input" placeholder="Item name" value={name} onChange={e => setName(e.target.value)} autoFocus />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <select className="input" value={category} onChange={e => setCategory(e.target.value)}>
+          {SHARED_CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+        </select>
+        <input className="input" placeholder="Brand" value={brand} onChange={e => setBrand(e.target.value)} />
+      </div>
+      <input className="input" placeholder="Image URL" value={imageUrl} onChange={e => setImageUrl(e.target.value)} />
+      <input className="input" placeholder="Notes" value={notes} onChange={e => setNotes(e.target.value)} />
+      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => onDone(null)}>Cancel</button>
+        <button type="submit" className="btn btn-primary btn-sm" disabled={saving || !name.trim()}>
+          {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
     </form>
