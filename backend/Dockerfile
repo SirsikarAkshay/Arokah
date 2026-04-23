@@ -1,29 +1,63 @@
 # syntax=docker/dockerfile:1
-FROM python:3.12-slim
 
-# System deps
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 1: Build dependencies
+# ─────────────────────────────────────────────────────────────────────────────
+FROM python:3.13-slim AS builder
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /build
+
+COPY requirements_prod.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements_prod.txt
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 2: Production image
+# ─────────────────────────────────────────────────────────────────────────────
+FROM python:3.13-slim AS production
+
+# Runtime-only system deps (libpq for psycopg2, curl for healthcheck)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Non-root user
+RUN groupadd --gid 1000 appuser \
+    && useradd --uid 1000 --gid appuser --create-home appuser
+
+# Copy installed Python packages from builder
+COPY --from=builder /install /usr/local
+
 WORKDIR /app
 
-# Install Python deps first (better layer caching)
-COPY requirements.txt requirements_prod.txt ./
-RUN pip install --no-cache-dir -r requirements_prod.txt
+# Copy application code
+COPY --chown=appuser:appuser . .
 
-# Copy project
-COPY . .
+# Create directories for static/media
+RUN mkdir -p /app/staticfiles /app/media \
+    && chown -R appuser:appuser /app/staticfiles /app/media
 
-# Collect static files
-RUN python manage.py collectstatic --noinput \
-    --settings=arokah.settings_production 2>/dev/null || true
+# Make entrypoint executable
+RUN chmod +x /app/entrypoint.sh
+
+USER appuser
 
 EXPOSE 8000
 
-CMD ["gunicorn", "arokah.wsgi:application", \
-     "--bind", "0.0.0.0:8000", \
-     "--workers", "4", \
-     "--timeout", "120", \
-     "--access-logfile", "-"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/api/health/ || exit 1
+
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+CMD ["daphne", "arokah.asgi:application", \
+     "-b", "0.0.0.0", \
+     "-p", "8000", \
+     "--proxy-headers", \
+     "--access-log", "-", \
+     "-v", "1"]

@@ -14,7 +14,8 @@ DEBUG = False
 SECRET_KEY = os.environ['SECRET_KEY']          # Must be set — never use default in prod
 ALLOWED_HOSTS = os.environ['ALLOWED_HOSTS'].split(',')
 
-SECURE_SSL_REDIRECT          = True
+SECURE_PROXY_SSL_HEADER      = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT          = os.environ.get('SECURE_SSL_REDIRECT', 'true').lower() == 'true'
 SECURE_HSTS_SECONDS          = 31_536_000      # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD          = True

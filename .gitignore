@@ -228,6 +228,50 @@ docker-compose.override.yml
 
 
 # =========================
+# Flutter / Dart
+# =========================
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+.packages
+pubspec.lock
+*.dart.js
+*.dart.js.deps
+*.dart.js.map
+
+# Flutter build output
+mobile_flutter/build/
+mobile_flutter/.dart_tool/
+mobile_flutter/android/app/debug/
+mobile_flutter/android/app/profile/
+mobile_flutter/android/app/release/
+mobile_flutter/ios/Pods/
+mobile_flutter/ios/.symlinks/
+mobile_flutter/ios/Flutter/Flutter.framework
+mobile_flutter/ios/Flutter/Flutter.podspec
+mobile_flutter/macos/Flutter/ephemeral/
+
+# Symbolication / obfuscation
+app.*.symbols
+app.*.map.json
+
+# CocoaPods
+mobile_flutter/ios/Podfile.lock
+mobile_flutter/macos/Podfile.lock
+
+
+# =========================
+# uv / lock files
+# =========================
+# uv.lock is auto-generated; uncomment if you want to commit it
+uv.lock
+
+
+# =========================
 # Project-specific
 # =========================
 # Uploaded media / user content
@@ -246,3 +290,6 @@ backend/uploads/
 # ML data & model artifacts
 backend/data/
 backend/ml/artifacts/
+
+# Claude Code skill workspaces
+*-workspace/

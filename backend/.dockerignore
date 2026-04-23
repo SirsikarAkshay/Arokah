@@ -1,0 +1,48 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+env
+.mypy_cache
+.pytest_cache
+.ruff_cache
+htmlcov
+.coverage
+
+# IDE
+.idea
+.vscode
+*.iml
+
+# Docker (prevent recursive copy)
+docker-compose*.yml
+Dockerfile
+
+# Dev files
+*.sqlite3
+*.sqlite3-journal
+db.sqlite3
+tests/
+data/
+ml/artifacts/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env (secrets must be injected at runtime, not baked in)
+.env
+.env.*
+!.env.example
+
+# Nginx config (mounted as volume, not baked in)
+nginx/
+
+# Media (mounted as volume)
+media/
