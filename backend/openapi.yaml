@@ -145,6 +145,65 @@ paths:
               schema:
                 $ref: '#/components/schemas/PackingListResponse'
           description: ''
+  /api/agents/smart-recommend/:
+    post:
+      operationId: agents_smart_recommend_create
+      description: Combines the trained fashion ML model, live weather data, and Mistral-powered
+        cultural intelligence to produce outfit recommendations. Items found in the
+        user's wardrobe are returned directly; gaps include shopping links. Pass `destination`
+        (required), optional `date`, `occasion`.
+      summary: Unified smart outfit recommendation
+      tags:
+      - agents
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmartRecommendInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SmartRecommendInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SmartRecommendInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartRecommendResponse'
+          description: ''
+  /api/agents/weekly-looks/:
+    post:
+      operationId: agents_weekly_looks_create
+      description: Generates 7 days of unique outfits based on weather forecasts and
+        calendar events. Tracks used items across days to maximize variety.
+      summary: Generate a full week of daily outfits
+      tags:
+      - agents
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WeeklyLooksInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WeeklyLooksInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WeeklyLooksInputRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyLooksResponse'
+          description: ''
   /api/auth/forgot-password/:
     post:
       operationId: auth_forgot_password_create
@@ -415,6 +474,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/AppleSyncResult'
           description: ''
+  /api/calendar/device/sync/:
+    post:
+      operationId: calendar_device_sync_create
+      description: Receives events from the mobile device's native calendar.
+      summary: Sync device calendar events
+      tags:
+      - calendar
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceSyncRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DeviceSyncRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DeviceSyncRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceSyncResponse'
+          description: ''
   /api/calendar/google/callback/:
     get:
       operationId: calendar_google_callback_retrieve
@@ -549,6 +636,17 @@ paths:
       - calendar
       security:
       - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/config:
+    get:
+      operationId: config_retrieve
+      description: GET /api/config — public config the frontend reads on startup.
+      tags:
+      - config
+      security:
+      - {}
       responses:
         '200':
           description: No response body
@@ -1169,13 +1267,158 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/itinerary/trips/{id}/save-recommendation/:
+    post:
+      operationId: itinerary_trips_save_recommendation_create
+      description: Save or clear an AI recommendation on this trip.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9]+$
+        required: true
+      tags:
+      - itinerary
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TripRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TripRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+          description: ''
+    delete:
+      operationId: itinerary_trips_save_recommendation_destroy
+      description: Save or clear an AI recommendation on this trip.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9]+$
+        required: true
+      tags:
+      - itinerary
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/messages/conversations/:
+    get:
+      operationId: messages_conversations_list
+      description: GET /api/messages/conversations/ — list my conversations.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - messages
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedConversationList'
+          description: ''
+  /api/messages/conversations/{id}/mark_read/:
+    post:
+      operationId: messages_conversations_mark_read_create
+      description: POST /api/messages/conversations/<id>/mark_read/ — mark all as
+        read now.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - messages
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/messages/conversations/{id}/messages/:
+    get:
+      operationId: messages_conversations_messages_list
+      description: GET /api/messages/conversations/<id>/messages/?before_id=N — message
+        history.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - messages
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+          description: ''
+  /api/messages/conversations/{id}/send/:
+    post:
+      operationId: messages_conversations_send_create
+      description: 'POST /api/messages/conversations/<id>/send/  body: { body }'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - messages
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/messages/conversations/open/:
+    post:
+      operationId: messages_conversations_open_create
+      description: |-
+        POST /api/messages/conversations/open/  body: { user_id }
+        Get or create the 1:1 conversation with `user_id`. Users must be connected.
+      tags:
+      - messages
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
   /api/outfits/history/:
     get:
       operationId: outfits_history_list
       description: |-
         GET /api/outfits/history/
-        Past accepted outfit recommendations, newest first.
-        Query params: ?days=30 (default 30), ?source=daily|trip
+        Past outfit recommendations, newest first.
+        Query params: ?days=90 (default 90), ?source=daily|trip, ?status=accepted|rejected|pending
       parameters:
       - name: page
         required: false
@@ -1194,6 +1437,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedOutfitRecommendationList'
           description: ''
+  /api/outfits/preferences/:
+    get:
+      operationId: outfits_preferences_retrieve
+      description: |-
+        GET /api/outfits/preferences/
+        Computed user preferences from feedback history — used by the recommendation
+        engine and shown in the UI as stats.
+      tags:
+      - outfits
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
   /api/outfits/recommendations/:
     get:
       operationId: outfits_recommendations_list
@@ -1344,8 +1601,11 @@ paths:
     patch:
       operationId: outfits_recommendations_feedback_partial_update
       description: |-
-        Accept or reject a recommendation.
-        Body: {"accepted": true|false}
+        Accept or reject a recommendation, optionally with item-level feedback.
+        Body: {
+            "accepted": true|false,
+            "item_feedback": [{"clothing_item": 5, "liked": true}, ...]  (optional)
+        }
       parameters:
       - in: path
         name: id
@@ -1378,10 +1638,6 @@ paths:
   /api/outfits/recommendations/daily/:
     get:
       operationId: outfits_recommendations_daily_retrieve
-      description: |-
-        Return today's outfit recommendation.
-        Query params:
-          ?date=YYYY-MM-DD  (defaults to today)
       tags:
       - outfits
       security:
@@ -1393,6 +1649,395 @@ paths:
               schema:
                 $ref: '#/components/schemas/OutfitRecommendation'
           description: ''
+  /api/outfits/recommendations/weekly/:
+    get:
+      operationId: outfits_recommendations_weekly_retrieve
+      tags:
+      - outfits
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutfitRecommendation'
+          description: ''
+  /api/shared-wardrobes/:
+    get:
+      operationId: shared_wardrobes_retrieve
+      tags:
+      - shared-wardrobes
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: shared_wardrobes_create
+      tags:
+      - shared-wardrobes
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/shared-wardrobes/{id}/:
+    get:
+      operationId: shared_wardrobes_retrieve_2
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - shared-wardrobes
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: shared_wardrobes_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - shared-wardrobes
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/shared-wardrobes/{id}/items/:
+    get:
+      operationId: shared_wardrobes_items_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - shared-wardrobes
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: shared_wardrobes_items_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - shared-wardrobes
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/shared-wardrobes/{id}/items/{item_id}/:
+    patch:
+      operationId: shared_wardrobes_items_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: item_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - shared-wardrobes
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: shared_wardrobes_items_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: item_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - shared-wardrobes
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/shared-wardrobes/{id}/members/:
+    post:
+      operationId: shared_wardrobes_members_create
+      description: |-
+        POST /api/shared-wardrobes/<pk>/members/  body: { user_id }
+        Sends an invitation instead of directly adding. The invitee must accept.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - shared-wardrobes
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/shared-wardrobes/{id}/members/{user_id}/:
+    delete:
+      operationId: shared_wardrobes_members_destroy
+      description: DELETE /api/shared-wardrobes/<pk>/members/<user_id>/  — owner removes
+        anyone, self-remove allowed.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: user_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - shared-wardrobes
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/shared-wardrobes/invitations/:
+    get:
+      operationId: shared_wardrobes_invitations_retrieve
+      description: GET /api/shared-wardrobes/invitations/ — pending invitations for
+        the current user.
+      tags:
+      - shared-wardrobes
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/shared-wardrobes/invitations/{id}/respond/:
+    post:
+      operationId: shared_wardrobes_invitations_respond_create
+      description: 'POST /api/shared-wardrobes/invitations/<pk>/respond/  body: {
+        action: "accept"|"decline" }'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - shared-wardrobes
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/social/blocks/:
+    get:
+      operationId: social_blocks_retrieve
+      description: 'GET /api/social/blocks/  — POST /api/social/blocks/ body: { handle
+        }'
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: social_blocks_create
+      description: 'GET /api/social/blocks/  — POST /api/social/blocks/ body: { handle
+        }'
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/social/blocks/{id}/:
+    delete:
+      operationId: social_blocks_destroy
+      description: DELETE /api/social/blocks/<id>/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/social/connections/:
+    get:
+      operationId: social_connections_retrieve
+      description: |-
+        GET /api/social/connections/?status=accepted|pending|rejected
+        Returns connections involving the current user, with `other_user` inlined.
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/social/connections/{id}/:
+    delete:
+      operationId: social_connections_destroy
+      description: |-
+        DELETE /api/social/connections/<id>/
+        Works for:
+          - canceling a pending outgoing request (you are from_user)
+          - removing an accepted connection from either side
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/social/connections/{id}/accept/:
+    post:
+      operationId: social_connections_accept_create
+      description: POST /api/social/connections/<id>/accept/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/social/connections/{id}/reject/:
+    post:
+      operationId: social_connections_reject_create
+      description: POST /api/social/connections/<id>/reject/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/social/connections/request/:
+    post:
+      operationId: social_connections_request_create
+      description: 'POST /api/social/connections/request/  body: { handle }'
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/social/me/profile/:
+    get:
+      operationId: social_me_profile_retrieve
+      description: GET/PATCH /api/social/me/profile/
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyProfile'
+          description: ''
+    patch:
+      operationId: social_me_profile_partial_update
+      description: GET/PATCH /api/social/me/profile/
+      tags:
+      - social
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMyProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMyProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMyProfileRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyProfile'
+          description: ''
+  /api/social/me/profile/handle/:
+    post:
+      operationId: social_me_profile_handle_create
+      description: 'POST /api/social/me/profile/handle/  body: { handle }'
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/social/users/search/:
+    get:
+      operationId: social_users_search_retrieve
+      description: GET /api/social/users/search/?handle=<exact>
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
   /api/sustainability/logs/:
     get:
       operationId: sustainability_logs_list
@@ -1552,6 +2197,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserSustainabilityProfile'
+          description: ''
+  /api/wardrobe/analyze-image/:
+    post:
+      operationId: wardrobe_analyze_image_create
+      description: |-
+        POST /api/wardrobe/analyze-image/  (multipart: image=<file>)
+
+        Returns auto-detected clothing metadata from a photo. Does NOT persist
+        anything — the client takes the returned fields, lets the user confirm/edit,
+        and then POSTs them as a normal item create.
+      summary: Analyze a clothing photo and auto-detect item fields
+      tags:
+      - wardrobe
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyzeImageResponse'
           description: ''
   /api/wardrobe/background-removal/:
     post:
@@ -1761,6 +2427,107 @@ paths:
               schema:
                 $ref: '#/components/schemas/ReceiptImportResponse'
           description: ''
+  /api/wardrobe/starter-pack/apply/:
+    post:
+      operationId: wardrobe_starter_pack_apply_create
+      description: |-
+        Bulk-creates ClothingItem rows for every accepted StarterPackItem, plus any custom items the user typed in. Records the decision in StarterPackApplication for offline analysis (which items get rejected most often → demote them in the next pack version).
+
+        Idempotent: if the user has already applied a starter pack, this returns 409 — call DELETE first if the user wants to redo onboarding.
+      summary: Apply the starter pack to the user's wardrobe
+      tags:
+      - wardrobe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StarterPackApplyRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StarterPackApplyRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StarterPackApplyRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StarterPackApplyResponse'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlreadyApplied'
+          description: ''
+  /api/wardrobe/starter-pack/preview/:
+    get:
+      operationId: wardrobe_starter_pack_preview_retrieve
+      description: |-
+        Returns the proposed wardrobe items for the user's demographic. Each item carries its prevalence percentage and survey citation so the client can render a tooltip explaining 'why is this here?'.
+
+        If `region` or `gender` is omitted, falls back to the authenticated user's saved values. Region falls back to user.location-derived cluster lookup (TODO: geo-IP); for now, supply explicitly.
+      summary: Preview the starter pack for a (region, gender) combination
+      parameters:
+      - in: query
+        name: gender
+        schema:
+          enum:
+          - men
+          - women
+          - boys
+          - girls
+          - kid_boys
+          - kid_girls
+          type: string
+          minLength: 1
+        description: |-
+          * `men` - Men
+          * `women` - Women
+          * `boys` - Boys
+          * `girls` - Girls
+          * `kid_boys` - Kid boys
+          * `kid_girls` - Kid girls
+      - in: query
+        name: region
+        schema:
+          type: string
+          minLength: 1
+        description: RegionCluster.code
+      tags:
+      - wardrobe
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StarterPackPreview'
+          description: ''
+  /api/wardrobe/starter-pack/regions/:
+    get:
+      operationId: wardrobe_starter_pack_regions_retrieve
+      description: |-
+        Returns the catalogue of region buckets the starter-pack system supports (Phase 1: 3 regions). Clients should call this on first run instead of hardcoding the list — new regions added server-side become available without a client update.
+
+        Includes `suggested_region`, the server's best guess for the current user based on their timezone, so clients can pre-select.
+      summary: List all available region clusters
+      tags:
+      - wardrobe
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegionListResponse'
+          description: ''
   /api/weather/:
     get:
       operationId: weather_retrieve
@@ -1818,6 +2585,43 @@ components:
         * `weight_saved` - Reduced luggage weight
         * `rental` - Chose rental over purchase
         * `secondhand` - Bought secondhand
+    AlreadyApplied:
+      type: object
+      properties:
+        error:
+          type: string
+        application_id:
+          type: integer
+      required:
+      - application_id
+      - error
+    AnalyzeImageResponse:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+        formality:
+          type: string
+        season:
+          type: string
+        colors:
+          type: array
+          items:
+            type: string
+        material:
+          type: string
+        brand:
+          type: string
+      required:
+      - brand
+      - category
+      - colors
+      - formality
+      - material
+      - name
+      - season
     AppleSyncResult:
       type: object
       properties:
@@ -1846,6 +2650,9 @@ components:
       - message
       - original_filename
       - status
+    BlankEnum:
+      enum:
+      - ''
     BulkUploadResponse:
       type: object
       properties:
@@ -1945,11 +2752,15 @@ components:
       enum:
       - google
       - outlook
+      - apple
+      - device
       - manual
       type: string
       description: |-
         * `google` - Google Calendar
         * `outlook` - Outlook
+        * `apple` - Apple Calendar
+        * `device` - Device Calendar
         * `manual` - Manual Entry
     CategoryEnum:
       enum:
@@ -1984,6 +2795,8 @@ components:
           maxLength: 200
         category:
           $ref: '#/components/schemas/CategoryEnum'
+        source:
+          $ref: '#/components/schemas/ClothingItemSourceEnum'
         formality:
           $ref: '#/components/schemas/FormalityEnum'
         season:
@@ -2049,6 +2862,8 @@ components:
           maxLength: 200
         category:
           $ref: '#/components/schemas/CategoryEnum'
+        source:
+          $ref: '#/components/schemas/ClothingItemSourceEnum'
         formality:
           $ref: '#/components/schemas/FormalityEnum'
         season:
@@ -2080,6 +2895,28 @@ components:
       required:
       - category
       - name
+    ClothingItemSourceEnum:
+      enum:
+      - manual
+      - starter_pack
+      - image_scan
+      - receipt
+      type: string
+      description: |-
+        * `manual` - Added manually
+        * `starter_pack` - Auto-added from starter pack
+        * `image_scan` - Detected from photo
+        * `receipt` - Imported from receipt
+    ConfidenceEnum:
+      enum:
+      - high
+      - medium
+      - low
+      type: string
+      description: |-
+        * `high` - High
+        * `medium` - Medium
+        * `low` - Low
     ConflictDetectorInputRequest:
       type: object
       description: Input for POST /api/agents/conflict-detector/
@@ -2094,7 +2931,6 @@ components:
           description: Longitude for live weather
         location:
           type: string
-          minLength: 1
           description: Location name (geocoded)
         weather:
           type: object
@@ -2118,6 +2954,31 @@ components:
       - job_id
       - output
       - status
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        other_user:
+          type: string
+          readOnly: true
+        last_message:
+          type: string
+          readOnly: true
+        unread_count:
+          type: string
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - id
+      - last_message
+      - other_user
+      - unread_count
+      - updated_at
     CulturalAdvisorInputRequest:
       type: object
       description: Input for POST /api/agents/cultural-advisor/
@@ -2129,7 +2990,6 @@ components:
           maxLength: 100
         city:
           type: string
-          minLength: 1
           default: ''
           maxLength: 100
         month:
@@ -2202,7 +3062,6 @@ components:
           description: Longitude for live weather
         location:
           type: string
-          minLength: 1
           description: Location name (geocoded)
         weather:
           type: object
@@ -2222,6 +3081,31 @@ components:
       - job_id
       - output
       - status
+    DeviceSyncRequestRequest:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - events
+    DeviceSyncResponse:
+      type: object
+      properties:
+        created:
+          type: integer
+        updated:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+      required:
+      - created
+      - errors
+      - updated
     EventTypeEnum:
       enum:
       - external_meeting
@@ -2260,20 +3144,6 @@ components:
         * `smart` - Smart
         * `formal` - Formal
         * `activewear` - Activewear
-    RithaTokenObtainPairRequest:
-      type: object
-      properties:
-        email:
-          type: string
-          writeOnly: true
-          minLength: 1
-        password:
-          type: string
-          writeOnly: true
-          minLength: 1
-      required:
-      - email
-      - password
     GoogleSyncResult:
       type: object
       properties:
@@ -2351,6 +3221,91 @@ components:
       - tip
       - total_grams
       - total_kg
+    Message:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        conversation:
+          type: integer
+          readOnly: true
+        sender:
+          type: integer
+          readOnly: true
+        body:
+          type: string
+          maxLength: 4000
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - body
+      - conversation
+      - created_at
+      - id
+      - sender
+    MyProfile:
+      type: object
+      properties:
+        handle:
+          type: string
+          readOnly: true
+        display_name:
+          type: string
+          maxLength: 80
+        bio:
+          type: string
+          maxLength: 280
+        avatar_url:
+          type: string
+          format: uri
+          maxLength: 200
+        visibility:
+          $ref: '#/components/schemas/VisibilityEnum'
+        handle_changed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - handle
+      - handle_changed_at
+      - updated_at
+    OccasionEnum:
+      enum:
+      - casual
+      - smart_casual
+      - business
+      - formal
+      - activewear
+      - travel
+      - cultural_visit
+      - date
+      - wedding
+      - interview
+      type: string
+      description: |-
+        * `casual` - casual
+        * `smart_casual` - smart_casual
+        * `business` - business
+        * `formal` - formal
+        * `activewear` - activewear
+        * `travel` - travel
+        * `cultural_visit` - cultural_visit
+        * `date` - date
+        * `wedding` - wedding
+        * `interview` - interview
     OutfitItem:
       type: object
       properties:
@@ -2358,8 +3313,26 @@ components:
           type: integer
         role:
           $ref: '#/components/schemas/RoleEnum'
+        liked:
+          type: boolean
+          nullable: true
+        item_name:
+          type: string
+          readOnly: true
+        item_category:
+          type: string
+          readOnly: true
+        item_brand:
+          type: string
+          readOnly: true
+        item_colors:
+          readOnly: true
       required:
       - clothing_item
+      - item_brand
+      - item_category
+      - item_colors
+      - item_name
     OutfitItemRequest:
       type: object
       properties:
@@ -2367,6 +3340,9 @@ components:
           type: integer
         role:
           $ref: '#/components/schemas/RoleEnum'
+        liked:
+          type: boolean
+          nullable: true
       required:
       - clothing_item
     OutfitPlannerInputRequest:
@@ -2383,7 +3359,6 @@ components:
           description: Longitude for live weather
         location:
           type: string
-          minLength: 1
           description: Location name (geocoded)
         weather:
           type: object
@@ -2402,7 +3377,6 @@ components:
           description: Trip end date (YYYY-MM-DD)
         destination:
           type: string
-          minLength: 1
           maxLength: 200
         activities:
           type: array
@@ -2581,7 +3555,6 @@ components:
           description: Longitude for live weather
         location:
           type: string
-          minLength: 1
           description: Location name (geocoded)
         weather:
           type: object
@@ -2660,6 +3633,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ClothingItem'
+    PaginatedConversationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Conversation'
     PaginatedCulturalRuleList:
       type: object
       required:
@@ -2838,6 +3834,8 @@ components:
           maxLength: 200
         category:
           $ref: '#/components/schemas/CategoryEnum'
+        source:
+          $ref: '#/components/schemas/ClothingItemSourceEnum'
         formality:
           $ref: '#/components/schemas/FormalityEnum'
         season:
@@ -2866,6 +3864,21 @@ components:
         tags: {}
         is_active:
           type: boolean
+    PatchedMyProfileRequest:
+      type: object
+      properties:
+        display_name:
+          type: string
+          maxLength: 80
+        bio:
+          type: string
+          maxLength: 280
+        avatar_url:
+          type: string
+          format: uri
+          maxLength: 200
+        visibility:
+          $ref: '#/components/schemas/VisibilityEnum'
     PatchedOutfitRecommendationRequest:
       type: object
       properties:
@@ -2934,7 +3947,11 @@ components:
         destination:
           type: string
           minLength: 1
-          maxLength: 200
+          maxLength: 400
+        country:
+          type: string
+          maxLength: 120
+        cities: {}
         start_date:
           type: string
           format: date
@@ -2943,6 +3960,11 @@ components:
           format: date
         notes:
           type: string
+        saved_recommendation:
+          nullable: true
+        shared_wardrobe:
+          type: integer
+          nullable: true
     PatchedUserRequest:
       type: object
       properties:
@@ -2956,6 +3978,10 @@ components:
           type: string
           minLength: 1
           maxLength: 64
+        gender:
+          oneOf:
+          - $ref: '#/components/schemas/UserGenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
         location_name:
           type: string
           maxLength: 200
@@ -2980,6 +4006,43 @@ components:
       required:
       - items_created
       - status
+    RegionCluster:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 60
+          pattern: ^[-a-zA-Z0-9_]+$
+        display_name:
+          type: string
+          maxLength: 120
+        climate_zone:
+          type: string
+          maxLength: 20
+        cultural_cluster:
+          type: string
+          maxLength: 40
+        country_codes: {}
+        notes:
+          type: string
+      required:
+      - climate_zone
+      - code
+      - cultural_cluster
+      - display_name
+    RegionListResponse:
+      type: object
+      properties:
+        regions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegionCluster'
+        suggested_region:
+          type: string
+          nullable: true
+      required:
+      - regions
+      - suggested_region
     Register:
       type: object
       properties:
@@ -3018,8 +4081,21 @@ components:
           maxLength: 100
         timezone:
           type: string
-          minLength: 1
           maxLength: 64
+      required:
+      - email
+      - password
+    RithaTokenObtainPairRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
       required:
       - email
       - password
@@ -3073,6 +4149,20 @@ components:
         * `autumn` - Autumn
         * `winter` - Winter
         * `all` - All Season
+    SeasonalityEnum:
+      enum:
+      - spring
+      - summer
+      - autumn
+      - winter
+      - all
+      type: string
+      description: |-
+        * `spring` - Spring
+        * `summer` - Summer
+        * `autumn` - Autumn
+        * `winter` - Winter
+        * `all` - All Season
     SeverityEnum:
       enum:
       - info
@@ -3083,6 +4173,218 @@ components:
         * `info` - Info
         * `warning` - Warning
         * `required` - Required
+    SmartRecommendInputRequest:
+      type: object
+      description: Input for POST /api/agents/smart-recommend/
+      properties:
+        lat:
+          type: number
+          format: double
+          description: Latitude for live weather
+        lon:
+          type: number
+          format: double
+          description: Longitude for live weather
+        location:
+          type: string
+          description: Location name (geocoded)
+        weather:
+          type: object
+          additionalProperties: {}
+          description: Weather snapshot dict (overrides live fetch)
+        destination:
+          type: string
+          minLength: 1
+          description: Destination city or country (e.g. "Tokyo", "Italy")
+          maxLength: 200
+        date:
+          type: string
+          format: date
+          description: Date for the recommendation (YYYY-MM-DD, defaults to today)
+        start_date:
+          type: string
+          format: date
+          description: Trip start date (YYYY-MM-DD) — for multi-day recommendations
+        end_date:
+          type: string
+          format: date
+          description: Trip end date (YYYY-MM-DD) — for multi-day recommendations
+        occasion:
+          allOf:
+          - $ref: '#/components/schemas/OccasionEnum'
+          default: casual
+          description: |-
+            Occasion type
+
+            * `casual` - casual
+            * `smart_casual` - smart_casual
+            * `business` - business
+            * `formal` - formal
+            * `activewear` - activewear
+            * `travel` - travel
+            * `cultural_visit` - cultural_visit
+            * `date` - date
+            * `wedding` - wedding
+            * `interview` - interview
+      required:
+      - destination
+    SmartRecommendResponse:
+      type: object
+      properties:
+        job_id:
+          type: integer
+        status:
+          type: string
+        output:
+          type: object
+          additionalProperties: {}
+      required:
+      - job_id
+      - output
+      - status
+    StarterPackApplyRequestGenderEnum:
+      enum:
+      - men
+      - women
+      - boys
+      - girls
+      - kid_boys
+      - kid_girls
+      type: string
+      description: |-
+        * `men` - Men
+        * `women` - Women
+        * `boys` - Boys
+        * `girls` - Girls
+        * `kid_boys` - Kid boys
+        * `kid_girls` - Kid girls
+    StarterPackApplyRequestRequest:
+      type: object
+      description: Body of POST /api/wardrobe/starter-pack/apply/
+      properties:
+        region_code:
+          type: string
+          minLength: 1
+        gender:
+          $ref: '#/components/schemas/StarterPackApplyRequestGenderEnum'
+        accepted_ids:
+          type: array
+          items:
+            type: integer
+        rejected_ids:
+          type: array
+          items:
+            type: integer
+        opt_ins:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        custom_added:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
+              minLength: 1
+          description: 'Optional items the user typed in: [{"name":"...", "category":"top"}]'
+      required:
+      - gender
+      - region_code
+    StarterPackApplyResponse:
+      type: object
+      properties:
+        items_created:
+          type: integer
+        application_id:
+          type: integer
+      required:
+      - application_id
+      - items_created
+    StarterPackItem:
+      type: object
+      description: Read-only catalog row, exposed to clients with the full evidence
+        trail.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
+        subcategory:
+          type: string
+          maxLength: 60
+        display_name:
+          type: string
+          maxLength: 120
+        default_colors: {}
+        seasonality:
+          $ref: '#/components/schemas/SeasonalityEnum'
+        formality:
+          $ref: '#/components/schemas/FormalityEnum'
+        prevalence_pct:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          nullable: true
+        source_label:
+          type: string
+          maxLength: 120
+        source_year:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+        source_url:
+          type: string
+          format: uri
+          maxLength: 200
+        confidence:
+          $ref: '#/components/schemas/ConfidenceEnum'
+        is_default:
+          type: boolean
+        is_opt_in:
+          type: boolean
+        opt_in_group:
+          type: string
+          maxLength: 40
+        preview_image_url:
+          type: string
+          format: uri
+          maxLength: 200
+        sort_order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+      required:
+      - category
+      - display_name
+      - id
+      - source_label
+      - subcategory
+    StarterPackPreview:
+      type: object
+      description: Bundle of the proposed pack for a (region, gender) request.
+      properties:
+        region:
+          $ref: '#/components/schemas/RegionCluster'
+        gender:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StarterPackItem'
+        opt_in_groups:
+          type: array
+          items:
+            type: string
+      required:
+      - gender
+      - items
+      - opt_in_groups
+      - region
     SustainabilityLog:
       type: object
       properties:
@@ -3159,12 +4461,22 @@ components:
         id:
           type: integer
           readOnly: true
+        shared_wardrobe_name:
+          type: string
+          readOnly: true
+        is_collaborative:
+          type: string
+          readOnly: true
         name:
           type: string
           maxLength: 200
         destination:
           type: string
-          maxLength: 200
+          maxLength: 400
+        country:
+          type: string
+          maxLength: 120
+        cities: {}
         start_date:
           type: string
           format: date
@@ -3173,6 +4485,8 @@ components:
           format: date
         notes:
           type: string
+        saved_recommendation:
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -3180,12 +4494,17 @@ components:
         user:
           type: integer
           readOnly: true
+        shared_wardrobe:
+          type: integer
+          nullable: true
       required:
       - created_at
       - destination
       - end_date
       - id
+      - is_collaborative
       - name
+      - shared_wardrobe_name
       - start_date
       - user
     TripRequest:
@@ -3198,7 +4517,11 @@ components:
         destination:
           type: string
           minLength: 1
-          maxLength: 200
+          maxLength: 400
+        country:
+          type: string
+          maxLength: 120
+        cities: {}
         start_date:
           type: string
           format: date
@@ -3207,6 +4530,11 @@ components:
           format: date
         notes:
           type: string
+        saved_recommendation:
+          nullable: true
+        shared_wardrobe:
+          type: integer
+          nullable: true
       required:
       - destination
       - end_date
@@ -3231,6 +4559,10 @@ components:
         timezone:
           type: string
           maxLength: 64
+        gender:
+          oneOf:
+          - $ref: '#/components/schemas/UserGenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
         location_name:
           type: string
           maxLength: 200
@@ -3257,6 +4589,9 @@ components:
         is_email_verified:
           type: boolean
           readOnly: true
+        has_completed_onboarding:
+          type: boolean
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -3266,9 +4601,26 @@ components:
       - created_at
       - email
       - google_calendar_connected
+      - has_completed_onboarding
       - id
       - is_email_verified
       - outlook_calendar_connected
+    UserGenderEnum:
+      enum:
+      - men
+      - women
+      - boys
+      - girls
+      - kid_boys
+      - kid_girls
+      type: string
+      description: |-
+        * `men` - Men (adult)
+        * `women` - Women (adult)
+        * `boys` - Boys (teen / young adult)
+        * `girls` - Girls (teen / young adult)
+        * `kid_boys` - Kid boys (child)
+        * `kid_girls` - Kid girls (child)
     UserRequest:
       type: object
       properties:
@@ -3282,6 +4634,10 @@ components:
           type: string
           minLength: 1
           maxLength: 64
+        gender:
+          oneOf:
+          - $ref: '#/components/schemas/UserGenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
         location_name:
           type: string
           maxLength: 200
@@ -3327,6 +4683,14 @@ components:
       - id
       - updated_at
       - user
+    VisibilityEnum:
+      enum:
+      - public
+      - connections_only
+      type: string
+      description: |-
+        * `public` - Public
+        * `connections_only` - Connections only
     WeatherSnapshot:
       type: object
       properties:
@@ -3347,6 +4711,39 @@ components:
       - precipitation_probability
       - source
       - temp_c
+    WeeklyLooksInputRequest:
+      type: object
+      description: Input for POST /api/agents/weekly-looks/
+      properties:
+        lat:
+          type: number
+          format: double
+          description: Latitude for live weather
+        lon:
+          type: number
+          format: double
+          description: Longitude for live weather
+        location:
+          type: string
+          description: Location name (geocoded)
+        weather:
+          type: object
+          additionalProperties: {}
+          description: Weather snapshot dict (overrides live fetch)
+    WeeklyLooksResponse:
+      type: object
+      properties:
+        job_id:
+          type: integer
+        status:
+          type: string
+        output:
+          type: object
+          additionalProperties: {}
+      required:
+      - job_id
+      - output
+      - status
   securitySchemes:
     jwtAuth:
       type: http

@@ -19,6 +19,7 @@ import SharedWardrobesPage from './pages/SharedWardrobesPage.jsx'
 import SharedWardrobeDetailPage from './pages/SharedWardrobeDetailPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import OutfitHistoryPage from './pages/OutfitHistoryPage.jsx'
+import OnboardingPage from './pages/OnboardingPage.jsx'
 
 import { useToast } from './hooks/useToast.jsx'
 import { ToastList } from './components/Toast.jsx'
@@ -40,10 +41,16 @@ function Spinner() {
   )
 }
 
-function ProtectedRoute({ children }) {
+function ProtectedRoute({ children, allowDuringOnboarding = false }) {
   const { user, loading } = useAuth()
   if (loading) return <Spinner />
   if (!user)   return <Navigate to="/login" replace />
+  // First-time users land on /onboarding until they apply (or skip) a starter pack.
+  if (!allowDuringOnboarding
+      && user.has_completed_onboarding === false
+      && !localStorage.getItem('ritha_onboarding_skipped')) {
+    return <Navigate to="/onboarding" replace />
+  }
   return children
 }
 
@@ -55,6 +62,10 @@ function AppRoutes() {
       <Route path="/forgot-password" element={user ? <Navigate to="/" replace /> : <ForgotPasswordPage />} />
       <Route path="/reset-password" element={user ? <Navigate to="/" replace /> : <ResetPasswordPage />} />
       <Route path="/verify-email" element={user ? <Navigate to="/" replace /> : <VerifyEmailPage />} />
+
+      <Route path="/onboarding" element={
+        <ProtectedRoute allowDuringOnboarding><OnboardingPage /></ProtectedRoute>
+      } />
 
       <Route path="/" element={
         <ProtectedRoute><Layout><DashboardPage /></Layout></ProtectedRoute>

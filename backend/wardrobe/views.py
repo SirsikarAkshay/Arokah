@@ -432,3 +432,284 @@ class ClothingItemViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+# ── Starter pack ──────────────────────────────────────────────────────────────
+from rest_framework import status
+from .models import RegionCluster, StarterPackItem, StarterPackApplication
+from .serializers import (
+    RegionClusterSerializer,
+    StarterPackPreviewSerializer,
+    StarterPackApplyRequestSerializer,
+    StarterPackApplyResponseSerializer,
+)
+
+
+@extend_schema(
+    summary="Preview the starter pack for a (region, gender) combination",
+    description=(
+        "Returns the proposed wardrobe items for the user's demographic. Each "
+        "item carries its prevalence percentage and survey citation so the "
+        "client can render a tooltip explaining 'why is this here?'.\n\n"
+        "If `region` or `gender` is omitted, falls back to the authenticated "
+        "user's saved values. Region falls back to user.location-derived "
+        "cluster lookup (TODO: geo-IP); for now, supply explicitly."
+    ),
+    parameters=[
+        inline_serializer(name='StarterPackPreviewQuery', fields={
+            'region': serializers.CharField(required=False, help_text='RegionCluster.code'),
+            'gender': serializers.ChoiceField(required=False, choices=StarterPackItem.GENDER_CHOICES),
+        }),
+    ],
+    responses={200: StarterPackPreviewSerializer},
+)
+class StarterPackPreviewView(drf_views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        region_code = request.query_params.get('region') or _user_region_code(request.user)
+        gender      = request.query_params.get('gender') or request.user.gender
+
+        if not region_code or not gender:
+            return Response(
+                {'error': 'region and gender are required (either via query params '
+                          'or set on the user profile)'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            region = RegionCluster.objects.get(code=region_code)
+        except RegionCluster.DoesNotExist:
+            return Response(
+                {'error': f'unknown region "{region_code}"'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        items = StarterPackItem.objects.filter(
+            region_cluster=region, gender=gender,
+        ).order_by('sort_order', '-prevalence_pct')
+
+        opt_in_groups = sorted(set(
+            i.opt_in_group for i in items if i.is_opt_in and i.opt_in_group
+        ))
+
+        data = StarterPackPreviewSerializer({
+            'region':        region,
+            'gender':        gender,
+            'items':         items,
+            'opt_in_groups': opt_in_groups,
+        }).data
+        return Response(data)
+
+
+@extend_schema(
+    summary="Apply the starter pack to the user's wardrobe",
+    description=(
+        "Bulk-creates ClothingItem rows for every accepted StarterPackItem, "
+        "plus any custom items the user typed in. Records the decision in "
+        "StarterPackApplication for offline analysis (which items get rejected "
+        "most often → demote them in the next pack version).\n\n"
+        "Idempotent: if the user has already applied a starter pack, this "
+        "returns 409 — call DELETE first if the user wants to redo onboarding."
+    ),
+    request=StarterPackApplyRequestSerializer,
+    responses={
+        201: StarterPackApplyResponseSerializer,
+        409: inline_serializer(name='AlreadyApplied', fields={
+            'error': serializers.CharField(),
+            'application_id': serializers.IntegerField(),
+        }),
+    },
+)
+class StarterPackApplyView(drf_views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        ser = StarterPackApplyRequestSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        d = ser.validated_data
+
+        user = request.user
+        if hasattr(user, 'starter_pack_application'):
+            return Response(
+                {'error': 'starter pack already applied for this user',
+                 'application_id': user.starter_pack_application.id},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        try:
+            region = RegionCluster.objects.get(code=d['region_code'])
+        except RegionCluster.DoesNotExist:
+            return Response({'error': f'unknown region "{d["region_code"]}"'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        accepted = StarterPackItem.objects.filter(
+            id__in=d['accepted_ids'], region_cluster=region, gender=d['gender'],
+        )
+
+        # Bulk-build ClothingItem rows
+        items_to_create = []
+        for sp in accepted:
+            items_to_create.append(ClothingItem(
+                user=user,
+                name=sp.display_name,
+                category=sp.category,
+                formality=sp.formality,
+                season=sp.seasonality,
+                colors=sp.default_colors,
+                source='starter_pack',
+                tags=[sp.subcategory],
+            ))
+
+        # Custom items the user typed in (free-form)
+        for c in d.get('custom_added', []):
+            items_to_create.append(ClothingItem(
+                user=user,
+                name=c.get('name', '')[:200] or 'Untitled',
+                category=c.get('category', 'other'),
+                formality=c.get('formality', 'casual'),
+                season=c.get('season', 'all'),
+                colors=[],
+                source='manual',
+            ))
+
+        ClothingItem.objects.bulk_create(items_to_create)
+
+        # Telemetry: which items were proposed, kept, rejected
+        all_proposed = StarterPackItem.objects.filter(
+            region_cluster=region, gender=d['gender'], is_default=True,
+        ).values_list('id', 'subcategory')
+        accepted_ids = set(d['accepted_ids'])
+        proposed_log = [
+            {'id': pid, 'subcategory': sub, 'was_kept': pid in accepted_ids}
+            for pid, sub in all_proposed
+        ]
+
+        app = StarterPackApplication.objects.create(
+            user=user,
+            region_cluster=region,
+            gender=d['gender'],
+            proposed_items=proposed_log,
+            custom_added=d.get('custom_added', []),
+            opt_ins=d.get('opt_ins', []),
+            pack_version=1,
+        )
+
+        return Response(
+            {'items_created': len(items_to_create), 'application_id': app.id},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+# Timezone-prefix → region cluster heuristic. Cheap, no network, no geo-IP.
+# Order matters: more-specific prefixes first (Asia/Kolkata before Asia/).
+# Latin America is special-cased before America/ catches everything as NA.
+_TZ_REGION_MAP = [
+    # South Asia
+    ('Asia/Kolkata',          'south_asian_tropical'),
+    ('Asia/Dhaka',            'south_asian_tropical'),
+    ('Asia/Colombo',          'south_asian_tropical'),
+    ('Asia/Karachi',          'south_asian_tropical'),
+    ('Asia/Kathmandu',        'south_asian_tropical'),
+    # MENA
+    ('Asia/Riyadh',           'mena_arid'),
+    ('Asia/Dubai',            'mena_arid'),
+    ('Asia/Qatar',            'mena_arid'),
+    ('Asia/Kuwait',           'mena_arid'),
+    ('Asia/Bahrain',          'mena_arid'),
+    ('Asia/Muscat',           'mena_arid'),
+    ('Asia/Amman',            'mena_arid'),
+    ('Asia/Beirut',           'mena_arid'),
+    ('Africa/Cairo',          'mena_arid'),
+    ('Africa/Casablanca',     'mena_arid'),
+    ('Africa/Tunis',          'mena_arid'),
+    ('Africa/Algiers',        'mena_arid'),
+    ('Africa/Tripoli',        'mena_arid'),
+    # East / SE Asia subtropical
+    ('Asia/Bangkok',          'east_asian_subtropical'),
+    ('Asia/Ho_Chi_Minh',      'east_asian_subtropical'),
+    ('Asia/Manila',           'east_asian_subtropical'),
+    ('Asia/Kuala_Lumpur',     'east_asian_subtropical'),
+    ('Asia/Singapore',        'east_asian_subtropical'),
+    ('Asia/Jakarta',          'east_asian_subtropical'),
+    ('Asia/Hong_Kong',        'east_asian_subtropical'),
+    ('Asia/Phnom_Penh',       'east_asian_subtropical'),
+    ('Asia/Vientiane',        'east_asian_subtropical'),
+    ('Asia/Brunei',           'east_asian_subtropical'),
+    # Latin America (must come before America/ catch-all)
+    ('America/Sao_Paulo',     'latam_tropical'),
+    ('America/Recife',        'latam_tropical'),
+    ('America/Bahia',         'latam_tropical'),
+    ('America/Fortaleza',     'latam_tropical'),
+    ('America/Manaus',        'latam_tropical'),
+    ('America/Mexico_City',   'latam_tropical'),
+    ('America/Cancun',        'latam_tropical'),
+    ('America/Bogota',        'latam_tropical'),
+    ('America/Caracas',       'latam_tropical'),
+    ('America/Costa_Rica',    'latam_tropical'),
+    ('America/Panama',        'latam_tropical'),
+    ('America/Havana',        'latam_tropical'),
+    ('America/Santo_Domingo', 'latam_tropical'),
+    ('America/Tegucigalpa',   'latam_tropical'),
+    ('America/Managua',       'latam_tropical'),
+    ('America/El_Salvador',   'latam_tropical'),
+    ('America/Guatemala',     'latam_tropical'),
+    # North America
+    ('America/',         'na_temperate'),
+    ('US/',              'na_temperate'),
+    ('Canada/',          'na_temperate'),
+    # NW Europe
+    ('Europe/',          'nw_temperate'),
+    ('GB',               'nw_temperate'),
+    ('UTC',              'nw_temperate'),
+]
+
+
+def _region_from_timezone(tz: str | None) -> str | None:
+    if not tz:
+        return None
+    for prefix, region in _TZ_REGION_MAP:
+        if tz == prefix or tz.startswith(prefix):
+            return region
+    return None
+
+
+def _user_region_code(user) -> str | None:
+    """Best-effort region lookup, in priority order:
+       1. Explicit override in user.style_profile.region_cluster
+       2. Timezone-prefix heuristic (cheap; no extra fields needed)
+       3. None — caller surfaces region picker.
+    Phase 2: refine via user.location_lat/lon → Köppen + cultural cluster."""
+    if hasattr(user, 'style_profile') and isinstance(user.style_profile, dict):
+        explicit = user.style_profile.get('region_cluster')
+        if explicit:
+            return explicit
+    return _region_from_timezone(getattr(user, 'timezone', None))
+
+
+# ── Region listing ────────────────────────────────────────────────────────────
+
+@extend_schema(
+    summary="List all available region clusters",
+    description=(
+        "Returns the catalogue of region buckets the starter-pack system "
+        "supports (Phase 1: 3 regions). Clients should call this on first run "
+        "instead of hardcoding the list — new regions added server-side become "
+        "available without a client update.\n\n"
+        "Includes `suggested_region`, the server's best guess for the current "
+        "user based on their timezone, so clients can pre-select."
+    ),
+    responses={200: inline_serializer(name='RegionListResponse', fields={
+        'regions':           RegionClusterSerializer(many=True),
+        'suggested_region':  serializers.CharField(allow_null=True),
+    })},
+)
+class RegionListView(drf_views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        regions = RegionCluster.objects.all().order_by('display_name')
+        return Response({
+            'regions':          RegionClusterSerializer(regions, many=True).data,
+            'suggested_region': _user_region_code(request.user),
+        })

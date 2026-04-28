@@ -39,15 +39,23 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    has_completed_onboarding = serializers.SerializerMethodField()
+
     class Meta:
         model  = User
         fields = ['id', 'email', 'first_name', 'last_name', 'timezone',
+                  'gender',
                   'location_name', 'location_lat', 'location_lon',
                   'push_notifications',
                   'google_calendar_connected', 'apple_calendar_connected', 'outlook_calendar_connected',
-                  'style_profile', 'is_email_verified', 'created_at']
+                  'style_profile', 'is_email_verified',
+                  'has_completed_onboarding', 'created_at']
         read_only_fields = ['id', 'email', 'is_email_verified', 'created_at',
+                            'has_completed_onboarding',
                             'google_calendar_connected', 'apple_calendar_connected', 'outlook_calendar_connected']
+
+    def get_has_completed_onboarding(self, obj) -> bool:
+        return hasattr(obj, 'starter_pack_application')
 
 
 class PasswordChangeSerializer(serializers.Serializer):

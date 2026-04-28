@@ -34,6 +34,18 @@ export const wardrobe = {
   },
   receiptImport: (emailBody, autoSave = false) =>
     api.post('/wardrobe/receipt-import/', { email_body: emailBody, auto_save: autoSave }),
+
+  starterPack: {
+    regions: () => api.get('/wardrobe/starter-pack/regions/'),
+    preview: ({ region, gender }) => {
+      const q = new URLSearchParams({ ...(region && { region }), ...(gender && { gender }) }).toString()
+      return api.get(`/wardrobe/starter-pack/preview/${q ? '?' + q : ''}`)
+    },
+    apply: ({ region_code, gender, accepted_ids, rejected_ids = [], opt_ins = [], custom_added = [] }) =>
+      api.post('/wardrobe/starter-pack/apply/', {
+        region_code, gender, accepted_ids, rejected_ids, opt_ins, custom_added,
+      }),
+  },
 }
 
 // ── Itinerary ─────────────────────────────────────────────────────────────

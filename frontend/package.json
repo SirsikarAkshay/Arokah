@@ -6,7 +6,9 @@
     "dev": "vite",
     "build": "vite build",
     "build:production": "vite build --mode production",
-    "preview": "vite preview --host 0.0.0.0 --port 4173"
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
+    "gen:api": "openapi-typescript ../backend/openapi.yaml --output src/api/generated/schema.d.ts",
+    "check:api": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "date-fns": "^3.6.0",
@@ -19,6 +21,8 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "openapi-typescript": "^7.4.0",
+    "typescript": "^5.5.0",
     "vite": "^5.3.1"
   }
 }

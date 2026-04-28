@@ -19,6 +19,23 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
+    # ── Wardrobe demographic ──────────────────────────────────────────────────
+    # Drives starter-pack selection and outfit recommendations. Six buckets
+    # (vs. M/F/NB) because clothing categories diverge sharply by adult/teen/
+    # child stage in every region we surveyed (NSS R75, Cotton Inc 2023,
+    # Eurostat HBS COICOP 03.1). Stored as the user's "wardrobe demographic",
+    # not gender identity proper — a 25-year-old can self-select 'girls' if
+    # that matches their style.
+    GENDER_CHOICES = [
+        ('men',       'Men (adult)'),
+        ('women',     'Women (adult)'),
+        ('boys',      'Boys (teen / young adult)'),
+        ('girls',     'Girls (teen / young adult)'),
+        ('kid_boys',  'Kid boys (child)'),
+        ('kid_girls', 'Kid girls (child)'),
+    ]
+    gender      = models.CharField(max_length=12, choices=GENDER_CHOICES, blank=True, default='')
+
     email       = models.EmailField(unique=True)
     first_name  = models.CharField(max_length=100, blank=True)
     last_name   = models.CharField(max_length=100, blank=True)

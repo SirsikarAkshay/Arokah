@@ -388,7 +388,7 @@ export default function ProfilePage() {
               style={{ color: '#f87171', borderColor: 'rgba(220,70,60,0.3)' }}
               onClick={() => {
                 if (window.confirm('Are you sure? This will permanently delete your account and all your data.')) {
-                  alert('Account deletion coming soon — please contact support@ritha.com')
+                  alert('Account deletion coming soon — please contact support@getritha.com')
                 }
               }}
             >

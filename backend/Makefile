@@ -1,7 +1,7 @@
 # Ritha — Developer Makefile
 # Usage: make <target>
 
-.PHONY: help install run test migrate seed shell lint fmt docker-up docker-down docker-logs export-data
+.PHONY: help install run test migrate seed shell lint fmt docker-up docker-down docker-logs export-data codegen
 
 PYTHON     := python
 MANAGE     := $(PYTHON) manage.py
@@ -20,6 +20,7 @@ help:
 	@echo "  make superuser      Create a Django superuser"
 	@echo "  make shell          Open Django shell"
 	@echo "  make schema         Generate OpenAPI schema → openapi.yaml"
+	@echo "  make codegen        Regenerate schema + frontend types + Flutter models"
 	@echo "  make daily-looks    Batch-generate today's outfit recommendations"
 	@echo "  make export-data    Export user data (GDPR) — EMAIL=user@example.com"
 	@echo "  make lint           Run flake8 linter"
@@ -60,6 +61,19 @@ schema:
 	$(MANAGE) spectacular --file openapi.yaml
 	@echo "OpenAPI schema written to openapi.yaml"
 
+# One-shot: regenerate schema, then propagate to web (TS types) and mobile (Dart models).
+# Run after any change to a Django serializer / view that affects the public API.
+codegen: schema
+	@echo "▸ Frontend: TypeScript types"
+	cd ../frontend && npm run gen:api
+	@echo "▸ Mobile: Dart models"
+	cd ../mobile_flutter && bash tool/gen_api.sh
+	@echo ""
+	@echo "✓ All clients regenerated. Commit:"
+	@echo "    backend/openapi.yaml"
+	@echo "    frontend/src/api/generated/schema.d.ts"
+	@echo "    mobile_flutter/lib/api/generated/lib/model/"
+
 seed:
 	$(MANAGE) seed_cultural_data
 
@@ -68,10 +82,6 @@ superuser:
 
 shell:
 	$(MANAGE) shell
-
-schema:
-	$(MANAGE) spectacular --file openapi.yaml
-	@echo "Schema written to openapi.yaml"
 
 daily-looks:
 	$(MANAGE) generate_daily_looks --verbosity=2

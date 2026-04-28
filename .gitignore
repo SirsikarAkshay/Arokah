@@ -267,6 +267,11 @@ mobile_flutter/macos/Podfile.lock
 # =========================
 # uv / lock files
 # =========================
+# OpenAPI codegen — the generated files are committed (so CI doesn't need
+# Java/openapi-generator). Only the generator's transient cache is ignored.
+.openapi-generator/
+.openapi-generator-cli/
+
 # uv.lock is auto-generated; uncomment if you want to commit it
 uv.lock
 
@@ -286,6 +291,9 @@ backend/uploads/
 *.bak
 *.backup
 *.orig
+
+# User-data exports / ad-hoc reports dumped at repo root
+/*.pdf
 
 # ML data & model artifacts
 backend/data/

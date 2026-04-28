@@ -1,0 +1,19 @@
+# Cloudflare Pages — response headers
+# Docs: https://developers.cloudflare.com/pages/configuration/headers/
+
+# Universal Links (iOS): Apple fetches this file from https://ritha.app/.well-known/apple-app-site-association
+# It has no extension, so we must force application/json.
+/.well-known/apple-app-site-association
+  Content-Type: application/json
+  Cache-Control: public, max-age=3600
+
+/.well-known/assetlinks.json
+  Content-Type: application/json
+  Cache-Control: public, max-age=3600
+
+# Security headers for the SPA
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(self)

@@ -7,6 +7,9 @@ from .views import (
     ClothingItemViewSet,
     LuggageWeightView,
     ReceiptImportView,
+    RegionListView,
+    StarterPackApplyView,
+    StarterPackPreviewView,
 )
 
 router = DefaultRouter()
@@ -19,4 +22,7 @@ urlpatterns = [
     path('receipt-import/',     ReceiptImportView.as_view(),     name='receipt-import'),
     path('luggage-weight/',     LuggageWeightView.as_view(),     name='luggage-weight'),
     path('bulk-upload/',        BulkWardrobeUploadView.as_view(),  name='bulk-upload'),
+    path('starter-pack/regions/', RegionListView.as_view(),         name='starter-pack-regions'),
+    path('starter-pack/preview/', StarterPackPreviewView.as_view(), name='starter-pack-preview'),
+    path('starter-pack/apply/',   StarterPackApplyView.as_view(),   name='starter-pack-apply'),
 ]

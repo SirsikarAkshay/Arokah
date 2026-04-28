@@ -103,8 +103,16 @@ LOGGING = {
     },
 }
 
-# ── CORS ──────────────────────────────────────────────────────────────────────
+# ── CORS / CSRF ───────────────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = os.environ.get(
     'CORS_ALLOWED_ORIGINS',
-    'https://ritha.com,https://app.ritha.com'
+    'https://getritha.com,https://www.getritha.com,https://ritha.app'
+).split(',')
+
+# Django rejects unsafe-method requests (POST/PUT/DELETE) from any Origin not
+# listed here when the request crosses a scheme/host boundary. Must include
+# every front-end origin plus the API host itself (for the admin panel).
+CSRF_TRUSTED_ORIGINS = os.environ.get(
+    'CSRF_TRUSTED_ORIGINS',
+    'https://getritha.com,https://www.getritha.com,https://api.getritha.com,https://ritha.app'
 ).split(',')
