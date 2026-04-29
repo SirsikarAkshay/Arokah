@@ -120,7 +120,8 @@ def _recommend_single_day(user, destination, date_str, occasion, input_data):
     ideal_outfit = _build_ideal_outfit(ml_scores, weather, cultural, occasion)
 
     user_prefs = _get_user_item_scores(user)
-    matches, gaps = _match_wardrobe(wardrobe_items, ideal_outfit, weather, user_prefs=user_prefs)
+    matches, gaps = _match_wardrobe(wardrobe_items, ideal_outfit, weather,
+                                    user_prefs=user_prefs, cultural=cultural)
 
     if not wardrobe_items and not gaps:
         gaps = [
@@ -204,7 +205,8 @@ def _recommend_multi_day(user, destination, start_date, end_date, occasion, inpu
             available_items = list(wardrobe_items)
 
         matches, gaps = _match_wardrobe(available_items, ideal_outfit, weather,
-                                        day_index=i, user_prefs=user_prefs)
+                                        day_index=i, user_prefs=user_prefs,
+                                        cultural=cultural)
 
         if not wardrobe_items and not gaps:
             gaps = [
@@ -511,11 +513,23 @@ def _build_ideal_outfit(ml_scores: dict, weather: dict, cultural: dict, occasion
     extras    = ['sling']
 
     cultural_penalties = _cultural_penalties(cultural)
+    hard_filters = _cultural_hard_filters(cultural)
+    forbidden_dataset_cats = hard_filters['dataset_categories']
 
     def adjusted_score(cat):
+        if cat in forbidden_dataset_cats:
+            return 0.0   # §3.3 — required cultural rule excludes this category
         base = cat_scores.get(cat, 0.5)
         penalty = cultural_penalties.get(cat, 0)
         return max(0, base - penalty)
+
+    # Strip forbidden categories from each pool before ranking so the
+    # outfit builder cannot pick them even as a desperate fallback.
+    tops      = [c for c in tops      if c not in forbidden_dataset_cats]
+    bottoms   = [c for c in bottoms   if c not in forbidden_dataset_cats]
+    dresses   = [c for c in dresses   if c not in forbidden_dataset_cats]
+    outerwear = [c for c in outerwear if c not in forbidden_dataset_cats]
+    extras    = [c for c in extras    if c not in forbidden_dataset_cats]
 
     # Rank all options for each slot
     ranked_tops = sorted(tops, key=adjusted_score, reverse=True)
@@ -576,13 +590,17 @@ def _build_ideal_outfit(ml_scores: dict, weather: dict, cultural: dict, occasion
 
 
 def _cultural_penalties(cultural: dict) -> dict:
-    """Penalize categories that conflict with cultural rules."""
+    """Penalize categories that conflict with cultural rules (warning/info)."""
     penalties = {}
     rules = cultural.get('rules', [])
     for rule in rules:
         rtype = rule.get('type', '')
         severity = rule.get('severity', 'info')
-        penalty = {'required': 0.5, 'warning': 0.3, 'info': 0.1}.get(severity, 0.1)
+        # `required` rules are now handled by `_cultural_hard_filters` (§3.3).
+        # This soft path covers warning + info severity only.
+        if severity == 'required':
+            continue
+        penalty = {'warning': 0.3, 'info': 0.1}.get(severity, 0.1)
 
         if rtype in ('cover_shoulders', 'modest_dress'):
             penalties['vest'] = penalties.get('vest', 0) + penalty
@@ -593,6 +611,84 @@ def _cultural_penalties(cultural: dict) -> dict:
             penalties['skirt'] = penalties.get('skirt', 0) + penalty
 
     return penalties
+
+
+# ── §3.3 — Cultural rules as hard filters ────────────────────────────────────
+# When a cultural rule has severity=='required' (e.g. shoulders covered in a
+# specific religious site, modest dress mandated by local law), the
+# corresponding categories are removed from candidate pools entirely. This
+# is the difference between a tooltip the user has to read and a recommender
+# that respects the constraint by construction.
+
+# Maps cultural rule_type → dataset categories that violate that rule.
+_HARD_FILTER_BY_RULE_TYPE = {
+    'cover_shoulders': {'vest', 'sling', 'sling dress'},
+    'cover_knees':     {'shorts', 'skirt'},
+    'modest_dress':    {'vest', 'sling', 'sling dress', 'shorts', 'skirt'},
+    'no_bare_feet':    set(),     # handled at wardrobe filter on footwear
+}
+
+# Wardrobe-side equivalents (Ritha categories) for filtering user-owned items.
+# Empty set => no wardrobe-level filter for this rule type (the dataset-side
+# filter is sufficient). 'tags' lookups are case-insensitive substring.
+_HARD_FILTER_WARDROBE = {
+    'cover_shoulders': {'tags': ['sleeveless', 'tank', 'spaghetti', 'strapless']},
+    'cover_knees':     {'categories': set(), 'tags': ['shorts', 'mini', 'short skirt']},
+    'modest_dress':    {'categories': set(), 'tags': ['sleeveless', 'tank', 'shorts', 'mini', 'crop']},
+    'no_bare_feet':    {'tags': ['sandal', 'flip-flop', 'slipper']},
+}
+
+
+def _cultural_hard_filters(cultural: dict) -> dict:
+    """Return the set of dataset categories and wardrobe filters that must
+    be excluded due to severity='required' cultural rules.
+
+    Returns:
+        {
+          'dataset_categories': set[str],   # categories to drop from ideal-outfit
+          'wardrobe_tags':      set[str],   # lowercase tag substrings to exclude
+          'reasons':            list[dict], # human-readable trace per filter applied
+        }
+    """
+    forbidden_categories: set[str] = set()
+    forbidden_tags: set[str] = set()
+    reasons: list[dict] = []
+
+    for rule in cultural.get('rules', []) or []:
+        if (rule.get('severity') or 'info') != 'required':
+            continue
+        rtype = rule.get('type', '')
+        if rtype in _HARD_FILTER_BY_RULE_TYPE:
+            cats_for_rule = _HARD_FILTER_BY_RULE_TYPE[rtype]
+            forbidden_categories.update(cats_for_rule)
+        if rtype in _HARD_FILTER_WARDROBE:
+            for tag in _HARD_FILTER_WARDROBE[rtype].get('tags', []):
+                forbidden_tags.add(tag.lower())
+        if rtype in _HARD_FILTER_BY_RULE_TYPE or rtype in _HARD_FILTER_WARDROBE:
+            reasons.append({
+                'rule_type':   rtype,
+                'description': rule.get('description', ''),
+                'severity':    'required',
+            })
+
+    return {
+        'dataset_categories': forbidden_categories,
+        'wardrobe_tags':      forbidden_tags,
+        'reasons':            reasons,
+    }
+
+
+def _wardrobe_passes_cultural_filter(item: dict, hard_filters: dict) -> bool:
+    """True iff the wardrobe item is not blocked by any required cultural rule."""
+    forbidden_tags = hard_filters.get('wardrobe_tags') or set()
+    if not forbidden_tags:
+        return True
+    haystacks = []
+    haystacks.append((item.get('name') or '').lower())
+    for t in (item.get('tags') or []):
+        haystacks.append((t or '').lower())
+    blob = ' '.join(haystacks)
+    return not any(bad in blob for bad in forbidden_tags)
 
 
 # ── User preference scoring ─────────────────────────────────────────────────
@@ -642,12 +738,23 @@ def _get_wardrobe(user) -> list:
 
 
 def _match_wardrobe(wardrobe_items: list, ideal_outfit: list, weather: dict,
-                    day_index: int = 0, user_prefs: dict = None) -> tuple:
+                    day_index: int = 0, user_prefs: dict = None,
+                    cultural: dict | None = None) -> tuple:
     """
     Match ideal outfit categories against user's wardrobe.
     Returns (matches, gaps).
     """
     from ml.categories import WARDROBE_TO_DATASET
+
+    # §3.3 — drop wardrobe items that violate any required cultural rule
+    # before they can be selected. The user's own bare-shoulder top is no
+    # different from a recommendation that breaks the dress code.
+    hard_filters = _cultural_hard_filters(cultural or {})
+    if hard_filters['wardrobe_tags']:
+        wardrobe_items = [
+            item for item in wardrobe_items
+            if _wardrobe_passes_cultural_filter(item, hard_filters)
+        ]
 
     matches = []
     gaps = []
