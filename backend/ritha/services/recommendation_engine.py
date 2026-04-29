@@ -21,7 +21,11 @@ from django.core.cache import cache
 logger = logging.getLogger('ritha.recommendation')
 
 # Cache TTLs (seconds)
-_CULTURAL_TTL = 60 * 60 * 24       # 24h — cultural context is stable
+# Cultural rules (dress codes, etiquette, festivals by month) are stable across
+# months. The earlier 24h value over-spent Mistral budget — every active user
+# was paying to regenerate "modest dress in Riyadh" once a day. 30 days reflects
+# the actual rate of change while still surfacing seasonal events.
+_CULTURAL_TTL = 60 * 60 * 24 * 30  # 30 days
 _WEATHER_TTL  = 60 * 30            # 30min — short-term forecast stability
 _SHOPPING_TTL = 60 * 60 * 6        # 6h — shopping suggestions
 
@@ -30,6 +34,29 @@ def _cache_key(prefix: str, *parts) -> str:
     raw = '|'.join(str(p).strip().lower() for p in parts)
     digest = hashlib.md5(raw.encode('utf-8')).hexdigest()[:16]
     return f'ritha:rec:{prefix}:{digest}'
+
+
+# Tokens stripped from destination strings before cache keying so that
+# "Tokyo", "tokyo, japan", and "Tokyo Japan" all collapse to the same cache
+# slot. Order matters — strip commas first so "tokyo,japan" → "tokyo japan"
+# before whitespace collapse.
+_DEST_NOISE_TOKENS = (
+    'city of', 'the city of', 'greater', 'metropolitan',
+    'province', 'prefecture', 'region', 'state of',
+)
+
+
+def _normalize_destination(destination: str) -> str:
+    """Collapse common destination-string variations to a single canonical form.
+
+    Used only as a cache key — the original string is still passed to Mistral
+    so the model gets the user's exact phrasing.
+    """
+    s = (destination or '').lower().strip()
+    s = s.replace(',', ' ').replace('.', ' ')
+    for tok in _DEST_NOISE_TOKENS:
+        s = s.replace(tok, ' ')
+    return ' '.join(s.split())
 
 
 # ── Public entry point ───────────────────────────────────────────────────────
@@ -353,15 +380,19 @@ def _fetch_cultural_context(destination: str, date_str: str, weather: dict, occa
     if not _has_mistral():
         return _cultural_fallback(destination)
 
-    # Cache by (destination, month, occasion, weather_bucket) — rules/events/places
-    # don't change meaningfully day-to-day.
+    # Cache by (canonical destination, month, occasion). Weather is intentionally
+    # NOT in the key — cultural rules don't depend on temperature, and including
+    # it fragmented the cache 3-4× per destination/month/occasion tuple.
+    # Destination is normalized so "Tokyo" / "tokyo, japan" / "Tokyo Japan"
+    # share a slot. The original string still goes to Mistral on a miss.
     month_bucket = (date_str or '')[:7]  # 'YYYY-MM'
-    weather_bucket = _weather_bucket(weather)
-    key = _cache_key('cultural', destination, month_bucket, occasion, weather_bucket)
+    key = _cache_key('cultural', _normalize_destination(destination), month_bucket, occasion)
     hit = cache.get(key)
     if hit is not None:
+        logger.info('cultural_cache_hit destination=%r month=%s', destination, month_bucket)
         return hit
 
+    logger.info('cultural_cache_miss destination=%r month=%s', destination, month_bucket)
     try:
         result = _cultural_context_ai(destination, date_str, weather, occasion)
         cache.set(key, result, _CULTURAL_TTL)
