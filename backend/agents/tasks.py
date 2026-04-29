@@ -89,6 +89,32 @@ def run_packing_list_task(self, user_id: int, input_data: dict) -> dict:
         raise self.retry(exc=exc)
 
 
+@shared_task(name='agents.rebuild_style_profiles')
+def rebuild_style_profiles_task() -> dict:
+    """Rebuild every active user's style profile (§2.1).
+
+    Designed for a nightly Celery Beat schedule. Cheap per-user so safe to
+    run for the entire user table; large deployments should switch to an
+    incremental rebuild keyed on `feedback_count` change.
+    """
+    from django.contrib.auth import get_user_model
+    from outfits.style_profile import rebuild_for_user
+
+    User = get_user_model()
+    rebuilt = 0
+    failed = 0
+    for user in User.objects.filter(is_active=True).iterator():
+        try:
+            rebuild_for_user(user)
+            rebuilt += 1
+        except Exception as exc:
+            logger.warning('rebuild_style_profile failed for user=%s: %s', user.id, exc)
+            failed += 1
+
+    logger.info('rebuild_style_profiles: rebuilt=%d failed=%d', rebuilt, failed)
+    return {'rebuilt': rebuilt, 'failed': failed}
+
+
 @shared_task(name='agents.batch_daily_looks')
 def batch_daily_looks_task() -> dict:
     """

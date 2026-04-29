@@ -222,6 +222,13 @@ CELERY_BEAT_SCHEDULE         = {
         'task': 'agents.batch_daily_looks',
         'schedule': crontab(hour=6, minute=0),
     },
+    # §2.1 — rebuild per-user style profiles from accumulated feedback at
+    # 03:00 UTC, before the daily-look batch runs at 06:00 so the new
+    # profile is fresh when recommendations are generated.
+    'rebuild-style-profiles': {
+        'task': 'agents.rebuild_style_profiles',
+        'schedule': crontab(hour=3, minute=0),
+    },
 }
 
 # ── Sentry (error monitoring) ─────────────────────────────────────────────────
